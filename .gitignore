@@ -1,1 +1,39 @@
+# Ignore the build directory (Meson/Ninja build output)
+build/
+
+# Backup or swap files
+*~
+*.swp
+
+# Compiled object files
+*.o
+*.lo
+*.la
+*.obj
+
+# Executables
+*.exe
+*.out
+*.app
+*.elf
+
+# Logs and temporary files
+*.log
+
+# core dumps
+core
+core.*
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# DPDK specific optional ignores
+*.cmd
+*.d
+
+# IDE/editor-specific files (optional, if you're using these)
+.vscode/
+.idea/
 .DS_Store
