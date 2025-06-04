@@ -1,5 +1,34 @@
 ## Initial Setup
 After cloning this repository, please do the following to make sure everything works. If the steps below are not permitted, please try `chmod +x` on the scripts.
+### DPDK Build
+I used meson and ninja to build DPDK, so please make sure you have installed them. If you are also running it on CloudLab, you may need to install some packages by running the following command:
+
+#### meson and pyelftools
+```bash
+sudo apt update
+sudo apt install python3-pip ninja-build
+pip3 install --user meson
+pip3 install --user pyelftools
+```
+Then
+```bash
+echo 'export PATH=$HOME/.local/bin:$PATH' >> ~/.bashrc
+source ~/.bashrc
+```
+
+#### NUMA
+```bash
+sudo apt update
+sudo apt install libnuma-dev
+```
+
+#### Build DPDK
+```bash
+meson setup build
+meson configure build -Dexamples=all # You can also specify which examples to build
+ninja -C build
+```
+
 ### Scripts
 First go to the `scripts` directory and check `bind-NIC.sh`:
 ```bash
