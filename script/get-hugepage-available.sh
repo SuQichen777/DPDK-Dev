@@ -4,7 +4,7 @@
 HUGEPAGE_SIZE_MB=2048         # Hugepagesize
 HUGEPAGE_COUNT=1024           # Hugepage amount
 HUGEMOUNT_DIR=/mnt/huge
-EXAMPLE=/home/sqc/dpdk-23.11/build/examples/dpdk-helloworld
+EXAMPLE=/users/Jiaxi/DPDK-Dev/dpdk-23.11/build/examples/dpdk-helloworld
 FILE_PREFIX=mydpdk
 
 # === Step 1: Hugepages ===

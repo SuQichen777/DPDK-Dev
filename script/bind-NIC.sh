@@ -2,10 +2,10 @@
 set -e
 
 # === Set Parameters ===
-DPDK_DIR=/home/sqc/dpdk-23.11
+DPDK_DIR=/users/Jiaxi/DPDK-Dev/dpdk-23.11
 DEVBIND=$DPDK_DIR/usertools/dpdk-devbind.py
-VFIO_MODULE=uio_pci_generic
-PCI_DEVICES=("0000:03:00.0" "0000:1a:00.0")
+VFIO_MODULE=uio_pci_generic # VFIO_MODULE=vfio-pci if IOMMU supports
+PCI_DEVICES=("0000:17:00.0" "0000:17:00.1")
 
 # === Load Module ===
 echo "[+] Loading DPDK driver module: $VFIO_MODULE"
