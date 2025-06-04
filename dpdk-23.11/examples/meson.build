@@ -61,6 +61,7 @@ all_examples = [
         'vmdq_dcb',
         'pingpong',
         'pingpong_2',
+        'pingpong_pong'
 ]
 
 # on install, skip copying all meson.build files
