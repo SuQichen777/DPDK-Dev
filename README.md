@@ -28,9 +28,10 @@ meson setup build
 meson configure build -Dexamples=all # You can also specify which examples to build
 ninja -C build
 ```
+If your own machine has other packages not installed, please install them as meson will tell you.
 
 ### Scripts
-First go to the `scripts` directory and check `bind-NIC.sh`:
+First go to the `script` directory and check `bind-NIC.sh`:
 ```bash
 DPDK_DIR=
 PCI_DEVICES=
@@ -73,3 +74,21 @@ sudo systemctl enable dpdk-bind.service
 ```
 
 You can reboot the system and check whether hugepage and NICs setup successfully.
+
+## Run and Write DPDK Applications
+You can run DPDK applications in the `dpdk-23.11/build/examples` directory after building DPDK.
+
+### Write Your Own DPDK Application
+You can write your own DPDK application by creating a new directory in the `dpdk-23.11/examples` directory. You can use the existing examples as a reference.
+
+After writing your application, you should include a `meson.build` file in your application directory. Here is an example of a simple `meson.build` file:
+
+```meson
+allow_experimental_apis = true
+sources = files(
+        'main.c',
+)
+```
+Then please add the example name to the `dpdk-23.11/examples/meson.build` file.
+
+After that, if you did not have `meson configure build -Dexamples=all` before, please use `meson configure build -Dexamples+=my_app` to add your application to the build. Then you can just run `ninja -C build` to build your application.
