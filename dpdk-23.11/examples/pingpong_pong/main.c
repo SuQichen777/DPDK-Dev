@@ -2,11 +2,13 @@
 #include <stdlib.h>
 #include <signal.h>  // deal with ctrl-c
 #include <string.h>
+#include <stdio.h>
 #include <rte_common.h> // DPDK common definitions
 #include <rte_eal.h> // DPDK Environment Abstraction Layer
 #include <rte_ethdev.h> // DPDK Ethernet device API
 #include <rte_mbuf.h> // DPDK memory buffer API
 #include <rte_lcore.h> // DPDK logical core API
+#include <rte_ether.h> // DPDK Ethernet header
 // Global definitions
 #define NUM_MBUFS 8192
 #define MBUF_CACHE_SIZE 250
@@ -18,6 +20,7 @@ static struct rte_mempool * mbuf_pool; // memory pool for mbufs
 static const char * PING = "ping";
 static const char * PONG = "pong";
 
+// Hardcoded destination MAC address for the pong machine (can be overridden by --dest-mac)
 static struct rte_ether_addr dest_mac = {
     .addr_bytes = {0x00, 0x0C, 0x29, 0x58, 0xE9, 0xD3}
 };
@@ -25,6 +28,21 @@ static struct rte_ether_addr dest_mac = {
 static void signal_handler(int signum) { // handle signals like ctrl-c
     if (signum == SIGINT || signum == SIGTERM)
         force_quit = 1;
+}
+
+static int parse_mac(const char * mac_str, struct rte_ether_addr * mac_addr) {
+    // mac_str should be in the format "xx:xx:xx:xx:xx:xx"
+    unsigned int mac[6];
+    if (sscanf(mac_str, "%x:%x:%x:%x:%x:%x",
+               &mac[0], &mac[1], &mac[2],
+               &mac[3], &mac[4], &mac[5]) != 6) {
+        return -1;
+    }
+    for (int i = 0; i < 6; i++) {
+        mac_addr->addr_bytes[i] = (uint8_t)mac[i];
+    }
+    // turn "00:0C:29:D3:CC:89" into {0x00, 0x0C, 0x29, 0xD3, 0xCC, 0x89}
+    return 0;
 }
 
 static void send_string(uint16_t port, const char *msg) {
@@ -73,6 +91,21 @@ int main(int argc, char **argv) {
 
     int ret = rte_eal_init(argc, argv);
     if (ret < 0) rte_exit(EXIT_FAILURE, "EAL init failed\n");
+
+    argc -= ret; //argc is the number of arguments left after EAL initialization
+    argv += ret; //argv[0] is now the first non-EAL argument
+
+    // parse optional command line argument: --dest-mac=xx:xx:xx:xx:xx:xx
+    for (int i = 1; i < argc; i++) {
+        if (strncmp(argv[i], "--dest-mac=", 11) == 0) {
+            const char *mac_str = argv[i] + 11;
+            if (parse_mac(mac_str, &dest_mac) < 0) {
+                rte_exit(EXIT_FAILURE, "Invalid MAC format in --dest-mac\n");
+            } else {
+                printf("Using destination MAC: %s\n", mac_str);
+            }
+        }
+    }
 
     if (rte_eth_dev_count_avail() < 1)
         rte_exit(EXIT_FAILURE, "Need at least 1 DPDK port\n");
