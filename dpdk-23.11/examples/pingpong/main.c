@@ -97,7 +97,7 @@ int main(int argc, char **argv) {
 
     argc -= ret; //argc is the number of arguments left after EAL initialization
     argv += ret; //argv[0] is now the first non-EAL argument
-
+    uint16_t port = 0;
     // parse optional command line argument: --dest-mac=xx:xx:xx:xx:xx:xx
     for (int i = 1; i < argc; i++) {
         if (strncmp(argv[i], "--dest-mac=", 11) == 0) {
@@ -107,6 +107,9 @@ int main(int argc, char **argv) {
             } else {
                 printf("Using destination MAC: %s\n", mac_str);
             }
+        }else if (strncmp(argv[i], "--port=", 7) == 0) {
+            port = (uint16_t)atoi(argv[i] + 7);
+            printf("Using port: %u\n", port);
         }
     }
 
@@ -120,7 +123,7 @@ int main(int argc, char **argv) {
         rte_exit(EXIT_FAILURE, "mbuf pool creation failed\n");
 
     struct rte_eth_conf conf = {0}; // basic port config
-    uint16_t port = 0;
+    
     rte_eth_dev_configure(port, 1, 1, &conf); // 1 RX queue, 1 TX queue
     rte_eth_rx_queue_setup(port, 0, 128, rte_eth_dev_socket_id(port), NULL, mbuf_pool);
     rte_eth_tx_queue_setup(port, 0, 128, rte_eth_dev_socket_id(port), NULL);
