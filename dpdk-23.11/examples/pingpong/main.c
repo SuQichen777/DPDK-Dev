@@ -23,7 +23,8 @@ static const char * PONG = "pong";
 
 // Hardcoded destination MAC address for the pong machine (can be overridden by --dest-mac)
 static struct rte_ether_addr dest_mac = {
-    .addr_bytes = {0x00, 0x0C, 0x29, 0xD3, 0xCC, 0x89}
+    // 30:3E:A7:1E:D9:E5
+    .addr_bytes = {0x30, 0x3E, 0xA7, 0x1E, 0xD9, 0xE5}
 };
 
 // handle signals like ctrl-c
@@ -97,7 +98,7 @@ int main(int argc, char **argv) {
 
     argc -= ret; //argc is the number of arguments left after EAL initialization
     argv += ret; //argv[0] is now the first non-EAL argument
-    uint16_t port = 0;
+    uint16_t port = 2;
     // parse optional command line argument: --dest-mac=xx:xx:xx:xx:xx:xx
     for (int i = 1; i < argc; i++) {
         if (strncmp(argv[i], "--dest-mac=", 11) == 0) {
