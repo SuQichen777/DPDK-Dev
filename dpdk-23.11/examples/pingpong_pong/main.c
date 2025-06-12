@@ -74,6 +74,7 @@ static void process_packets(uint16_t port) {
     uint16_t nb_rx = rte_eth_rx_burst(port, 0, bufs, BURST_SIZE);
 
     for (int i = 0; i < nb_rx; i++) {
+        rte_pktmbuf_dump(stdout, bufs[i], bufs[i]->pkt_len);// dump packet for debugging
         struct rte_ether_hdr *eth = rte_pktmbuf_mtod(bufs[i], struct rte_ether_hdr *);
         char *payload = (char *)(eth + 1);
 
@@ -127,6 +128,7 @@ int main(int argc, char **argv) {
     rte_eth_promiscuous_enable(port);
 
     printf("Running dpdk_pong...\n");
+    
 
     while (!force_quit) {
         process_packets(port);
