@@ -74,8 +74,13 @@ static void process_packets(uint16_t port) {
     uint16_t nb_rx = rte_eth_rx_burst(port, 0, bufs, BURST_SIZE);
 
     for (int i = 0; i < nb_rx; i++) {
-        rte_pktmbuf_dump(stdout, bufs[i], bufs[i]->pkt_len);// dump packet for debugging
+        // rte_pktmbuf_dump(stdout, bufs[i], bufs[i]->pkt_len);// dump packet for debugging
         struct rte_ether_hdr *eth = rte_pktmbuf_mtod(bufs[i], struct rte_ether_hdr *);
+        if(eth->ether_type != rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV4)) {
+            printf("Received non-IP packet, skipping...\n");
+            rte_pktmbuf_free(bufs[i]);
+            continue;
+        }
         char *payload = (char *)(eth + 1);
 
         printf("Received: %s\n", payload);
