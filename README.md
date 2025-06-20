@@ -91,4 +91,6 @@ sources = files(
 ```
 Then please add the example name to the `dpdk-23.11/examples/meson.build` file.
 
-After that, if you did not have `meson configure build -Dexamples=all` before, please use `meson configure build -Dexamples+=my_app` to add your application to the build. Then you can just run `ninja -C build` to build your application.
+After that, if you did not have `meson configure build -Dexamples=all` before, please use `meson configure build -Dexamples+=my_app` to add your application to the build. Then you can just run `ninja -C build` to build your application. Then you can run your application in the `dpdk-23.11/build/examples` directory.
+
+If you would like to write under other directories, please make sure you have included the correct path in the `meson.build` file in the corresponding directory and make the same operation as above to add your application to the build.

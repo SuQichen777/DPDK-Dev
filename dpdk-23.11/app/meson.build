@@ -35,6 +35,7 @@ apps = [
         'test-regex',
         'test-sad',
         'test-security-perf',
+        'raft',
 ]
 
 if get_option('tests')
