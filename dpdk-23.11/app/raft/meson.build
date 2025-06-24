@@ -1,14 +1,14 @@
 name = 'raft'
 
 deps = [
-    dependency('ethdev'),
-    dependency('net'),
-    dependency('mbuf'),
-    dependency('memzone'),
-    dependency('timer'),
-    dependency('cmdline'),
-    dependency('kvargs'),
-    dependency('hash'),
+    get_variable('ethdev_dep'),
+    get_variable('mbuf_dep'),
+    get_variable('net_dep'),
+    get_variable('memzone_dep'),
+    get_variable('timer_dep'),
+    get_variable('cmdline_dep'),
+    get_variable('kvargs_dep'),
+    get_variable('hash_dep'),
 ]
 
 sources = files(
