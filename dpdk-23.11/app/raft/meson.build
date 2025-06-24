@@ -1,6 +1,6 @@
 name = 'raft'
 
-dpdk_libs = [
+deps += [
     'ethdev',
     'net',
     'mbuf',
@@ -10,12 +10,6 @@ dpdk_libs = [
     'kvargs',
     'hash'
 ]
-
-deps = []
-foreach lib : dpdk_libs
-    dep_name = 'rte_' + lib
-    deps += dependency(dep_name)
-endforeach
 
 sources = files(
     'main.c',
