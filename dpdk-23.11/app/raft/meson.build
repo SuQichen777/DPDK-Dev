@@ -1,14 +1,14 @@
 name = 'raft'
 
-deps += [
-    'ethdev',
-    'net',
-    'mbuf',
-    'memzone',
-    'timer',
-    'cmdline',
-    'kvargs',
-    'hash'
+deps = [
+    dependency('ethdev'),
+    dependency('net'),
+    dependency('mbuf'),
+    dependency('memzone'),
+    dependency('timer'),
+    dependency('cmdline'),
+    dependency('kvargs'),
+    dependency('hash'),
 ]
 
 sources = files(
@@ -27,8 +27,8 @@ executable('dpdk-raft',
     dependencies: deps,
     c_args: [
         '-DALLOW_EXPERIMENTAL_API',
-        '-DRAFT_PORT=9999',      
-        '-DNUM_NODES=3'          
+        '-DRAFT_PORT=9999',
+        '-DNUM_NODES=3'
     ],
     install: true
 )
