@@ -1,58 +1,64 @@
 #include <stdio.h>
 #include <stdint.h>
-#include <unistd.h>     // for sleep
-#include <time.h>
 #include <stdlib.h>
+#include <rte_eal.h>
+#include <rte_launch.h>
+#include <rte_lcore.h>
+#include <rte_timer.h>
 #include "election.h"
+#include "networking.h"
 #include "packet.h"
 
+static uint32_t node_id;
 
-static uint64_t get_time_ms() {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ((uint64_t)ts.tv_sec) * 1000 + ts.tv_nsec / 1000000;
+// current time
+static uint64_t get_time_ms(void) {
+    return rte_get_timer_cycles() * 1000 / rte_get_timer_hz();
 }
 
-// TODO: Implement the packet handling logic
-static void simulate_incoming_vote_request(uint32_t from_node, uint32_t term) {
-    struct raft_packet pkt = {
-        .msg_type = MSG_VOTE_REQUEST,
-        .term = term,
-        .node_id = from_node,
-        .rtt_ms = 0,
-    };
-    raft_handle_packet(&pkt, 0); // port 0 for now
-}
-
-int main(int argc, char **argv) {
-    if (argc < 2) {
-        fprintf(stderr, "Usage: %s <node_id>\n", argv[0]);
-        return 1;
-    }
-
-    uint32_t node_id = atoi(argv[1]);
-    raft_init(node_id);
-
+// DPDK work thread main function
+static int lcore_main(__attribute__((unused)) void *arg) {
     uint64_t last_heartbeat = 0;
-
+    
     while (1) {
-        uint64_t now = get_time_ms();
-        raft_tick(now);
+        // looping
 
+        process_packets();
+        rte_timer_manage();
+        // send heartbeat if this node is the leader
         if (raft_get_state() == STATE_LEADER) {
-            if (now - last_heartbeat > 500) {
+            uint64_t now = get_time_ms();
+            if (now - last_heartbeat >= 500) {
                 raft_send_heartbeat();
                 last_heartbeat = now;
             }
         }
-
-        // Test Local
-        if (now % 10000 < 10 && node_id != 1) {
-            simulate_incoming_vote_request(1, 1);
-        }
-
-        usleep(1000); // 1ms tick
+        
+        // delay using DPDK's timer
+        rte_delay_us_block(1000);
     }
+    return 0;
+}
 
+int main(int argc, char **argv) {
+    // initialize the Environment Abstraction Layer (EAL)
+    int ret = rte_eal_init(argc, argv);
+    if (ret < 0) {
+        rte_exit(EXIT_FAILURE, "EAL init failed\n");
+    }
+    
+    if (argc < 2) {
+        rte_exit(EXIT_FAILURE, "Usage: %s <node_id>\n", argv[0]);
+    }
+    node_id = atoi(argv[1]);
+    
+    net_init(node_id);
+    raft_init(node_id);
+    
+    printf("Node %u starting...\n", node_id);
+    
+    rte_eal_mp_remote_launch(lcore_main, NULL, CALL_MASTER);
+    rte_eal_mp_wait_lcore();
+    
     return 0;
 }

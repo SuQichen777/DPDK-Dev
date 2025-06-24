@@ -2,13 +2,15 @@
 #define PACKET_H
 
 #include <stdint.h>
+#define RAFT_PORT 9999
+#define RAFT_PACKET_SIZE sizeof(struct raft_packet)
+#define NUM_NODES 3 //TODO: Set the number of nodes in the cluster
 
 // three message types for Raft protocol
 #define MSG_VOTE_REQUEST   1
 #define MSG_VOTE_RESPONSE  2
 #define MSG_HEARTBEAT      3
 
-// will be used in election and heartbeat messages
 struct raft_packet {
     uint8_t  msg_type;   // defined above
     uint32_t term;       // current term

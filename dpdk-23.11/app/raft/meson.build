@@ -1,6 +1,22 @@
 name = 'raft'
 
-deps += ['eal', 'ethdev', 'cmdline', 'net', 'kvargs']
+dpdk_libs = [
+    'ethdev',
+    'net',
+    'mbuf',
+    'memzone',
+    'timer',
+    'cmdline',
+    'kvargs',
+    'hash'
+]
+
+deps = []
+foreach lib : dpdk_libs
+    dep_name = 'libdpdk_' + lib
+    deps += dependency(dep_name)
+endforeach
+
 sources = files(
     'main.c',
     'election.c',
@@ -10,20 +26,14 @@ sources = files(
 
 includes = include_directories('include')
 
-link_libs = []
-foreach d:deps
-    var_name = get_option('default_library') + '_rte_' + d
-    if is_variable(var_name)
-        link_libs += get_variable(var_name)
-    else
-        error('Missing DPDK dependency: ' + var_name)
-    endif
-endforeach
-
 executable('dpdk-raft',
     sources,
     include_directories: includes,
-    link_whole: link_libs,
-    c_args: ['-DALLOW_EXPERIMENTAL_API'],
+    dependencies: deps,
+    c_args: [
+        '-DALLOW_EXPERIMENTAL_API',
+        '-DRAFT_PORT=9999',      
+        '-DNUM_NODES=3'          
+    ],
     install: true
 )
