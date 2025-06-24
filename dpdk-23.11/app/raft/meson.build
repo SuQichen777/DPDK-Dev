@@ -13,7 +13,7 @@ dpdk_libs = [
 
 deps = []
 foreach lib : dpdk_libs
-    dep_name = 'libdpdk_' + lib
+    dep_name = 'rte_' + lib
     deps += dependency(dep_name)
 endforeach
 
@@ -22,6 +22,7 @@ sources = files(
     'election.c',
     'timeout.c',
     'rtt_service.c',
+    'networking.c'
 )
 
 includes = include_directories('include')
