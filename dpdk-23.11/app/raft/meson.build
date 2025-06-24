@@ -1,15 +1,18 @@
 name = 'raft'
 
+default_lib = get_option('default_library')
+
 deps = [
-    get_variable('ethdev_dep'),
-    get_variable('mbuf_dep'),
-    get_variable('net_dep'),
-    get_variable('memzone_dep'),
-    get_variable('timer_dep'),
-    get_variable('cmdline_dep'),
-    get_variable('kvargs_dep'),
-    get_variable('hash_dep'),
+    get_variable(default_lib + '_rte_ethdev'),
+    get_variable(default_lib + '_rte_mbuf'),
+    get_variable(default_lib + '_rte_net'),
+    get_variable(default_lib + '_rte_memzone'),
+    get_variable(default_lib + '_rte_timer'),
+    get_variable(default_lib + '_rte_cmdline'),
+    get_variable(default_lib + '_rte_kvargs'),
+    get_variable(default_lib + '_rte_hash'),
 ]
+
 
 sources = files(
     'main.c',
