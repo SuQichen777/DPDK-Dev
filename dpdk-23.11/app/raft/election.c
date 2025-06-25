@@ -1,128 +1,174 @@
+// election.c
 #include "election.h"
 #include "networking.h"
 #include <stdio.h>
 #include <string.h>
 #include <rte_timer.h>
+#include "timeout.h"
 
-#define ELECTION_TIMEOUT_MS 1500
+// typedef struct {
+//     uint32_t self_id;
+//     uint32_t current_term;
+//     uint32_t voted_for;
+//     uint32_t vote_granted;
+//     raft_state_t current_state;
+//     uint64_t last_heard_ms;
+// } raft_node_t;
 
-static void broadcast_raft_packet(struct raft_packet *pkt) {
-    for (uint32_t peer = 1; peer <= NUM_NODES; peer++) {
-        if (peer == self_id) continue;
+static raft_node_t raft_node;
+static struct rte_timer election_timer;
+static void election_timeout_cb(struct rte_timer *t, void *arg);
+
+static void broadcast_raft_packet(struct raft_packet *pkt)
+{
+    for (uint32_t peer = 1; peer <= NUM_NODES; peer++)
+    {
+        if (peer == raft_node.self_id)
+            continue;
         send_raft_packet(pkt, peer);
     }
 }
 
-void raft_init(uint32_t id) {
-    self_id = id;
-    current_state = STATE_FOLLOWER;
-    current_term = 0;
-    voted_for = 0;
-    vote_granted = 0;
-    last_heard_ms = 0;
-    printf("Raft init: node_id=%u\n", self_id);
-    init_timers();
+void raft_init(uint32_t id)
+{
+    memset(&raft_node, 0, sizeof(raft_node));
+    raft_node.self_id = id;
+    raft_node.current_state = STATE_FOLLOWER;
+    raft_node.current_term = 0;
+    raft_node.voted_for = 0;
+    raft_node.vote_granted = 0;
+    raft_node.last_heard_ms = 0;
+    printf("Raft init: node_id=%u\n", raft_node.self_id);
+    timeout_init(1200, 2000);
+    timeout_start_election(&election_timer, election_timeout_cb, NULL);
 }
 
-void raft_tick(uint64_t now_ms) {
-    if (current_state == STATE_LEADER) return;
-    
-    uint64_t elapsed_ms = now_ms - last_heard_ms;
-    if (elapsed_ms > ELECTION_TIMEOUT_MS) {
-        current_state = STATE_CANDIDATE;
-        current_term++;
-        voted_for = self_id;
-        vote_granted = 1;
-        last_heard_ms = now_ms;
+static void start_election(uint64_t now_ms)
+{
 
-        printf("Node %u starting election for term %u\n", self_id, current_term);
+    raft_node.current_state = STATE_CANDIDATE;
+    raft_node.current_term++;
+    raft_node.voted_for = raft_node.self_id;
+    raft_node.vote_granted = 1;
+    raft_node.last_heard_ms = now_ms;
 
-        struct raft_packet pkt = {
-            .msg_type = MSG_VOTE_REQUEST,
-            .term = current_term,
-            .node_id = self_id,
-            .rtt_ms = 0,
-        };
-        broadcast_raft_packet(&pkt);
-    }
+    printf("Node %u starting election for term %u\n", raft_node.self_id, raft_node.current_term);
+
+    struct raft_packet pkt = {
+        .msg_type = MSG_VOTE_REQUEST,
+        .term = raft_node.current_term,
+        .node_id = raft_node.self_id,
+        .rtt_ms = 0,
+    };
+    broadcast_raft_packet(&pkt);
+    timeout_start_election(&election_timer, election_timeout_cb, NULL);
 }
 
-void raft_handle_packet(const struct raft_packet * pkt, uint16_t port) {
-    if (pkt->term > current_term) {
-        current_term = pkt->term;
-        current_state = STATE_FOLLOWER;
-        voted_for = 0;
+void raft_handle_packet(const struct raft_packet *pkt, uint16_t port)
+{
+    (void)port;
+
+    uint64_t now_ms = rte_get_timer_cycles() * 1000 / rte_get_timer_hz();
+    if (pkt->term > raft_node.current_term)
+    {
+        raft_node.current_term = pkt->term;
+        raft_node.current_state = STATE_FOLLOWER;
+        raft_node.voted_for = 0;
+        timeout_start_election(&election_timer,
+                        election_timeout_cb,
+                        NULL);
     }
 
-    switch (pkt->msg_type) {
+    switch (pkt->msg_type)
+    {
     case MSG_VOTE_REQUEST:
-        if (current_state == STATE_FOLLOWER &&
-            (voted_for == 0 || voted_for == pkt->node_id)) {
-            voted_for = pkt->node_id;
-            last_heard_ms = 0;
+        if (raft_node.current_state == STATE_FOLLOWER &&
+            (raft_node.voted_for == 0 || raft_node.voted_for == pkt->node_id))
+        {
+            raft_node.voted_for = pkt->node_id;
+            raft_node.last_heard_ms = now_ms;
+            timeout_start_election(&election_timer,
+                       election_timeout_cb,
+                       NULL);
 
             struct raft_packet resp = {
                 .msg_type = MSG_VOTE_RESPONSE,
-                .term = current_term,
-                .node_id = self_id,
+                .term = raft_node.current_term,
+                .node_id = raft_node.self_id,
                 .rtt_ms = 0,
             };
             send_raft_packet(&resp, pkt->node_id);
             printf("Node %u granted vote to %u in term %u\n",
-                   self_id, pkt->node_id, current_term);
+                   raft_node.self_id, pkt->node_id, raft_node.current_term);
         }
         break;
 
     case MSG_VOTE_RESPONSE:
-        if (current_state == STATE_CANDIDATE && pkt->term == current_term) {
-            vote_granted++;
+        if (raft_node.current_state == STATE_CANDIDATE && pkt->term == raft_node.current_term)
+        {
+            raft_node.vote_granted++;
             printf("Node %u received vote from %u (total: %u/%u)\n",
-                   self_id, pkt->node_id, vote_granted, NUM_NODES);
-            if (vote_granted > NUM_NODES / 2) {
-                current_state = STATE_LEADER;
+                   raft_node.self_id, pkt->node_id, raft_node.vote_granted, NUM_NODES);
+            if (raft_node.vote_granted > NUM_NODES / 2)
+            {
+                raft_node.current_state = STATE_LEADER;
+                raft_send_heartbeat(); 
+                if (raft_node.vote_granted > NUM_NODES) raft_node.vote_granted = NUM_NODES;
                 printf("Node %u elected as leader in term %u\n",
-                       self_id, current_term);
+                       raft_node.self_id, raft_node.current_term);
+                timeout_stop(&election_timer); 
             }
         }
         break;
 
     case MSG_HEARTBEAT:
-        if (pkt->term >= current_term) {
-            current_state = STATE_FOLLOWER;
-            current_term = pkt->term;
-            last_heard_ms = 0;
-            printf("Node %u received heartbeat from leader %u\n", 
-                   self_id, pkt->node_id);
+        if (pkt->term >= raft_node.current_term)
+        {
+            raft_node.current_state = STATE_FOLLOWER;
+            raft_node.current_term = pkt->term;
+            raft_node.last_heard_ms = now_ms;
+
+            timeout_start_election(&election_timer,
+                                   election_timeout_cb,
+                                   NULL);
+            printf("Node %u received heartbeat from leader %u\n",
+                   raft_node.self_id, pkt->node_id);
         }
         break;
     }
 }
 
-void raft_send_heartbeat(void) {
-    if (current_state != STATE_LEADER) return;
-    
+void raft_send_heartbeat(void)
+{
+    if (raft_node.current_state != STATE_LEADER)
+        return;
+
     struct raft_packet pkt = {
         .msg_type = MSG_HEARTBEAT,
-        .term = current_term,
-        .node_id = self_id,
+        .term = raft_node.current_term,
+        .node_id = raft_node.self_id,
         .rtt_ms = 0,
     };
     broadcast_raft_packet(&pkt);
 }
 
-// TODO
-static void election_timeout_cb(__rte_unused struct rte_timer *timer, __rte_unused void *arg) {
-    uint64_t now_ms = rte_get_timer_cycles() * 1000 / rte_get_timer_hz();
-    raft_tick(now_ms);
+uint32_t raft_get_node_id(void)
+{
+    return raft_node.self_id;
 }
-
-// TODO
-void init_timers(void) {
-    rte_timer_init(&election_timer);
-    rte_timer_reset(&election_timer, 
-                   rte_get_timer_hz() * ELECTION_TIMEOUT_MS / 1000,
-                   PERIODICAL, 
-                   rte_lcore_id(), 
-                   election_timeout_cb, 
-                   NULL);
+uint32_t raft_get_term(void)
+{
+    return raft_node.current_term;
+}
+raft_state_t raft_get_state(void)
+{
+    return raft_node.current_state;
+}
+static void election_timeout_cb(struct rte_timer *t, void *arg)
+{
+    (void)t; 
+    (void)arg;
+    uint64_t now_ms = rte_get_timer_cycles() * 1000 / rte_get_timer_hz();
+    if (raft_node.current_state != STATE_LEADER)
+        start_election(now_ms);
 }

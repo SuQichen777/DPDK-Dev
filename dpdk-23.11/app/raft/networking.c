@@ -5,13 +5,14 @@
 #include <rte_mbuf.h>
 #include <rte_ip.h>
 #include <rte_timer.h>
+#include <rte_errno.h>
 
 #define MBUF_POOL_SIZE 4096
 #define BURST_SIZE 32
 
 static struct rte_mempool * mbuf_pool;
 static uint16_t port_id;
-static uint32_t self_id;
+// static uint32_t self_id;
 static const struct rte_eth_conf port_conf_default = {
     .rxmode = { .mtu = 1500 },
     .txmode = { .offloads = RTE_ETH_TX_OFFLOAD_MBUF_FAST_FREE }
@@ -25,23 +26,28 @@ static struct rte_ether_addr node_mac_map[NUM_NODES + 1] = {
 };
 
 void net_init(uint32_t id) {
-    self_id = id;
+    // self_id = id;
     // pool initialization
     mbuf_pool = rte_pktmbuf_pool_create("RAFT_MBUF_POOL", MBUF_POOL_SIZE,
         0, 0, RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
-    
+    if (mbuf_pool == NULL) rte_exit(EXIT_FAILURE, "Cannot create mbuf pool: %s\n", rte_strerror(rte_errno));
     // ethdev initialization
     port_id = 0;
-    rte_eth_dev_configure(port_id, 1, 1, &port_conf_default);
+    int ret;
+    ret = rte_eth_dev_configure(port_id, 1, 1, &port_conf_default);
+    if (ret < 0) rte_exit(EXIT_FAILURE, "dev_configure err=%d\n", ret);
     
     // rx and tx queue setup
-    rte_eth_rx_queue_setup(port_id, 0, 128, 
+    ret = rte_eth_rx_queue_setup(port_id, 0, 128, 
                          rte_eth_dev_socket_id(port_id), NULL, mbuf_pool);
-    rte_eth_tx_queue_setup(port_id, 0, 512, 
+    if (ret < 0) rte_exit(EXIT_FAILURE, "rx_queue_setup err=%d\n", ret);
+    ret = rte_eth_tx_queue_setup(port_id, 0, 512, 
                          rte_eth_dev_socket_id(port_id), NULL);
+    if (ret < 0) rte_exit(EXIT_FAILURE, "tx_queue_setup err=%d\n", ret);
     
     // start the device
-    rte_eth_dev_start(port_id);
+    ret = rte_eth_dev_start(port_id);
+    if (ret < 0) rte_exit(EXIT_FAILURE, "dev_start err=%d\n", ret);
 }
 
 void send_raft_packet(struct raft_packet *pkt, uint16_t dst_id) {
@@ -57,7 +63,7 @@ void send_raft_packet(struct raft_packet *pkt, uint16_t dst_id) {
     
     // eth_hdr is the first part of the packet
     struct rte_ether_hdr *eth_hdr = (struct rte_ether_hdr *)pkt_data;
-    rte_ether_addr_copy(&node_mac_map[self_id], &eth_hdr->s_addr); //src MAC
+    rte_ether_addr_copy(&node_mac_map[raft_get_node_id()], &eth_hdr->s_addr); //src MAC
     rte_ether_addr_copy(&node_mac_map[dst_id], &eth_hdr->d_addr); //dst MAC
     eth_hdr->ether_type = rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV4);
     
@@ -65,18 +71,17 @@ void send_raft_packet(struct raft_packet *pkt, uint16_t dst_id) {
     struct rte_ipv4_hdr *ip_hdr = (struct rte_ipv4_hdr *)(eth_hdr + 1);
     ip_hdr->version_ihl = 0x45;// IPv4, IHL=5
     ip_hdr->type_of_service = 0;//TODO: if QoS is needed reset this
-    ip_hdr->total_length = rte_cpu_to_be_16(sizeof(struct raft_packet) + 
-                                          sizeof(struct rte_udp_hdr));
-    ip_hdr->packet_id = 0;
-    ip_hdr->fragment_offset = 0;
+    ip_hdr->total_length = rte_cpu_to_be_16(sizeof(struct rte_ipv4_hdr) +
+                  sizeof(struct rte_udp_hdr) +
+                  sizeof(struct raft_packet));
+    ip_hdr->packet_id = rte_cpu_to_be_16(0);
+    ip_hdr->fragment_offset = rte_cpu_to_be_16(0);
     ip_hdr->time_to_live = 64;
     ip_hdr->next_proto_id = IPPROTO_UDP; //17 UDP protocol
     // TODO: if the subnet is different, change the src/dst address
     // 0xC0A80100 is 192.168.1.{id}
-    ip_hdr->src_addr = rte_cpu_to_be_32(0xC0A80100 | self_id);
+    ip_hdr->src_addr = rte_cpu_to_be_32(0xC0A80100 | raft_get_node_id());
     ip_hdr->dst_addr = rte_cpu_to_be_32(0xC0A80100 | dst_id);
-    // TODO: if checksum is needed, calculate it using rte_ipv4_cksum()
-    ip_hdr->hdr_checksum = 0;
     
     // UDP header
     struct rte_udp_hdr *udp_hdr = (struct rte_udp_hdr *)(ip_hdr + 1);
@@ -84,12 +89,15 @@ void send_raft_packet(struct raft_packet *pkt, uint16_t dst_id) {
     udp_hdr->dst_port = rte_cpu_to_be_16(RAFT_PORT);
     udp_hdr->dgram_len = rte_cpu_to_be_16(sizeof(struct raft_packet) + 
                                         sizeof(struct rte_udp_hdr));
-    udp_hdr->dgram_cksum = 0;
     
     // Packet payload
     struct raft_packet * raft_data = (struct raft_packet *)(udp_hdr + 1);
     memcpy(raft_data, pkt, sizeof(struct raft_packet));
-    
+
+    // Calculate checksums after filling the payload
+    ip_hdr->hdr_checksum = rte_ipv4_cksum(ip_hdr);
+    udp_hdr->dgram_cksum = rte_ipv4_udptcp_cksum(ip_hdr, udp_hdr);
+
     // send the packet
     rte_eth_tx_burst(port_id, 0, &mbuf, 1);
 }

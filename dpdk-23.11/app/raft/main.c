@@ -9,7 +9,7 @@
 #include "networking.h"
 #include "packet.h"
 
-static uint32_t node_id;
+// static uint32_t node_id;
 
 // current time
 static uint64_t get_time_ms(void) {
@@ -35,7 +35,7 @@ static int lcore_main(__attribute__((unused)) void *arg) {
         }
         
         // delay using DPDK's timer
-        rte_delay_us_block(1000);
+        rte_pause();
     }
     return 0;
 }
@@ -50,12 +50,12 @@ int main(int argc, char **argv) {
     if (argc < 2) {
         rte_exit(EXIT_FAILURE, "Usage: %s <node_id>\n", argv[0]);
     }
-    node_id = atoi(argv[1]);
+    uint32_t id = atoi(argv[1]);
     
-    net_init(node_id);
-    raft_init(node_id);
+    net_init(id);
+    raft_init(id);
     
-    printf("Node %u starting...\n", node_id);
+    printf("Node %u starting...\n", raft_get_node_id());
     
     rte_eal_mp_remote_launch(lcore_main, NULL, CALL_MASTER);
     rte_eal_mp_wait_lcore();
