@@ -16,7 +16,8 @@ static uint16_t port_id;
 // static uint32_t self_id;
 static const struct rte_eth_conf port_conf_default = {
     .rxmode = { .mtu = 1500 },
-    .txmode = { .offloads = RTE_ETH_TX_OFFLOAD_MBUF_FAST_FREE }
+    // .txmode = { .offloads = RTE_ETH_TX_OFFLOAD_MBUF_FAST_FREE }
+    .txmode = { .offloads = 0 }
 };
 
 // TODO: Simplified MAC address mapping for nodes
