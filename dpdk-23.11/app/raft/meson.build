@@ -7,5 +7,5 @@ sources = files(
         'timeout.c',
 )
 
-inc = include_directories('.', 'include')
+includes = include_directories('.', 'include')
 deps += ['timer', 'ethdev', 'mbuf', 'mempool', 'eal']
