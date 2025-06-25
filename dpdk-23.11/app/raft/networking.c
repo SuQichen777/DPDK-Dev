@@ -1,6 +1,7 @@
 // networking.c
 #include "networking.h"
 #include "election.h"
+#include <stdlib.h> 
 #include <rte_ethdev.h>
 #include <rte_mbuf.h>
 #include <rte_ip.h>
@@ -26,6 +27,7 @@ static struct rte_ether_addr node_mac_map[NUM_NODES + 1] = {
 };
 
 void net_init(uint32_t id) {
+    (void)id;
     // self_id = id;
     // pool initialization
     mbuf_pool = rte_pktmbuf_pool_create("RAFT_MBUF_POOL", MBUF_POOL_SIZE,
@@ -63,8 +65,8 @@ void send_raft_packet(struct raft_packet *pkt, uint16_t dst_id) {
     
     // eth_hdr is the first part of the packet
     struct rte_ether_hdr *eth_hdr = (struct rte_ether_hdr *)pkt_data;
-    rte_ether_addr_copy(&node_mac_map[raft_get_node_id()], &eth_hdr->s_addr); //src MAC
-    rte_ether_addr_copy(&node_mac_map[dst_id], &eth_hdr->d_addr); //dst MAC
+    rte_ether_addr_copy(&node_mac_map[raft_get_node_id()], &eth_hdr->src_addr); //src MAC
+    rte_ether_addr_copy(&node_mac_map[dst_id], &eth_hdr->dst_addr); //dst MAC
     eth_hdr->ether_type = rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV4);
     
     // IPv4 header

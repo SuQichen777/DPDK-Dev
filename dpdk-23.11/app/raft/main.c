@@ -57,7 +57,7 @@ int main(int argc, char **argv) {
     
     printf("Node %u starting...\n", raft_get_node_id());
     
-    rte_eal_mp_remote_launch(lcore_main, NULL, CALL_MASTER);
+    rte_eal_mp_remote_launch(lcore_main, NULL, CALL_MAIN);
     rte_eal_mp_wait_lcore();
     
     return 0;
