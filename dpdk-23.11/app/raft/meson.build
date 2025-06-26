@@ -7,6 +7,7 @@ sources = files(
         'timeout.c',
         'config.c',
 )
-
+jansson_dep = dependency('jansson', required: true)
 includes = include_directories('.', 'include')
 deps += ['timer', 'ethdev', 'mbuf', 'mempool', 'eal']
+deps += [jansson_dep]
