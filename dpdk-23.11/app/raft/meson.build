@@ -8,10 +8,13 @@ sources = files(
   'config.c',
 )
 includes = include_directories('.', 'include')
-jansson_dep = dependency('jansson', required: true)
 deps = [
-  'eal', 'ethdev', 'mbuf', 'mempool', 'timer',
-  jansson_dep
+  dependency('eal'),
+  dependency('ethdev'),
+  dependency('mbuf'),
+  dependency('mempool'),
+  dependency('timer'),
+  dependency('jansson')
 ]
 executable('dpdk-raft',
   sources,
