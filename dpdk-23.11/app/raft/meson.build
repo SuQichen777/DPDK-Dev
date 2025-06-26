@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright(c) 2025
+
 # Application name
 name = 'raft_node'
 
@@ -13,9 +16,25 @@ sources = files(
 # Include directories
 includes = include_directories('include')
 
-# Dependencies
 deps = [
-    'eal',
+    dependency('libdpdk'),
+    dependency('threads'),
+]
+
+# Compiler flags
+cflags = [
+    '-Wno-deprecated-declarations',
+    '-DALLOW_EXPERIMENTAL_API',
+]
+
+# JSON support
+if dpdk_conf.has('RTE_HAS_JANSSON')
+    jansson_dep = dependency('jansson')
+    deps += jansson_dep
+    cflags += '-DUSE_JANSSON'
+endif
+
+extra_deps = [
     'ethdev',
     'mempool',
     'net',
@@ -23,17 +42,9 @@ deps = [
     'timer',
 ]
 
-# Compiler flags
-cflags = [
-    '-Wno-deprecated-declarations',
-    '-DALLOW_EXPERIMENTAL_API'  # For DPDK 23.11 APIs
-]
-
-# JSON support
-if dpdk_conf.has('RTE_HAS_JANSSON')
-    ext_deps += jansson_dep
-    cflags += '-DUSE_JANSSON'
-endif
+foreach dep : extra_deps
+    deps += dependency(dep, required: true)
+endforeach
 
 # Build executable
 executable(
@@ -41,7 +52,7 @@ executable(
     sources,
     c_args: cflags,
     include_directories: includes,
-    dependencies: [dpdk] + ext_deps,
+    dependencies: deps,
     install: true,
     install_dir: 'bin'
 )
