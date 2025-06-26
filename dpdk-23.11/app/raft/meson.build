@@ -9,5 +9,4 @@ sources = files(
 )
 jansson_dep = dependency('jansson', required: true)
 includes = include_directories('.', 'include')
-deps += ['timer', 'ethdev', 'mbuf', 'mempool', 'eal']
-deps += [jansson_dep]
+deps += ['timer', 'ethdev', 'mbuf', 'mempool', 'eal','jansson_dep']
