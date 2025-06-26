@@ -1,6 +1,7 @@
 // networking.c
 #include "networking.h"
 #include "election.h"
+#include "config.h"
 #include <stdlib.h> 
 #include <rte_ethdev.h>
 #include <rte_mbuf.h>
