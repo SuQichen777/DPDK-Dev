@@ -28,8 +28,8 @@ static const struct rte_eth_conf port_conf_default = {
 //     [3] = {.addr_bytes = {0x00, 0x00, 0x00, 0x00, 0x03, 0x03}}
 // };
 
-void net_init(uint32_t id) {
-    (void)id;
+void net_init(void) {
+    // (void)id;
     // self_id = id;
     // pool initialization
     mbuf_pool = rte_pktmbuf_pool_create("RAFT_MBUF_POOL", MBUF_POOL_SIZE,
