@@ -5,6 +5,7 @@
 #include <string.h>
 #include <rte_timer.h>
 #include "timeout.h"
+#include "config.h"
 
 // typedef struct {
 //     uint32_t self_id;
@@ -39,7 +40,7 @@ void raft_init(uint32_t id)
     raft_node.vote_granted = 0;
     raft_node.last_heard_ms = 0;
     printf("Raft init: node_id=%u\n", raft_node.self_id);
-    timeout_init(1200, 2000);
+    timeout_init(global_config.election_timeout_min_ms, global_config.election_timeout_max_ms);
     timeout_start_election(&election_timer, election_timeout_cb, NULL);
 }
 

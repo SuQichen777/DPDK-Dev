@@ -7,12 +7,13 @@
 #include <rte_ip.h>
 #include <rte_timer.h>
 #include <rte_errno.h>
+#include <arpa/inet.h>
 
 #define MBUF_POOL_SIZE 4096
 #define BURST_SIZE 32
 
 static struct rte_mempool * mbuf_pool;
-static uint16_t port_id;
+// static uint16_t port_id;
 // static uint32_t self_id;
 static const struct rte_eth_conf port_conf_default = {
     .rxmode = { .mtu = 1500 },
@@ -21,11 +22,11 @@ static const struct rte_eth_conf port_conf_default = {
 };
 
 // TODO: Simplified MAC address mapping for nodes
-static struct rte_ether_addr node_mac_map[NUM_NODES + 1] = {
-    [1] = {.addr_bytes = {0x00, 0x00, 0x00, 0x00, 0x01, 0x01}},
-    [2] = {.addr_bytes = {0x00, 0x00, 0x00, 0x00, 0x02, 0x02}},
-    [3] = {.addr_bytes = {0x00, 0x00, 0x00, 0x00, 0x03, 0x03}}
-};
+// static struct rte_ether_addr node_mac_map[NUM_NODES + 1] = {
+//     [1] = {.addr_bytes = {0x00, 0x00, 0x00, 0x00, 0x01, 0x01}},
+//     [2] = {.addr_bytes = {0x00, 0x00, 0x00, 0x00, 0x02, 0x02}},
+//     [3] = {.addr_bytes = {0x00, 0x00, 0x00, 0x00, 0x03, 0x03}}
+// };
 
 void net_init(uint32_t id) {
     (void)id;
@@ -35,21 +36,21 @@ void net_init(uint32_t id) {
         0, 0, RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
     if (mbuf_pool == NULL) rte_exit(EXIT_FAILURE, "Cannot create mbuf pool: %s\n", rte_strerror(rte_errno));
     // ethdev initialization
-    port_id = 0;
+    global_config.port_id = 0;
     int ret;
-    ret = rte_eth_dev_configure(port_id, 1, 1, &port_conf_default);
+    ret = rte_eth_dev_configure(global_config.port_id, 1, 1, &port_conf_default);
     if (ret < 0) rte_exit(EXIT_FAILURE, "dev_configure err=%d\n", ret);
     
     // rx and tx queue setup
-    ret = rte_eth_rx_queue_setup(port_id, 0, 128, 
-                         rte_eth_dev_socket_id(port_id), NULL, mbuf_pool);
+    ret = rte_eth_rx_queue_setup(global_config.port_id, 0, 128, 
+                         rte_eth_dev_socket_id(global_config.port_id), NULL, mbuf_pool);
     if (ret < 0) rte_exit(EXIT_FAILURE, "rx_queue_setup err=%d\n", ret);
-    ret = rte_eth_tx_queue_setup(port_id, 0, 512, 
-                         rte_eth_dev_socket_id(port_id), NULL);
+    ret = rte_eth_tx_queue_setup(global_config.port_id, 0, 512, 
+                         rte_eth_dev_socket_id(global_config.port_id), NULL);
     if (ret < 0) rte_exit(EXIT_FAILURE, "tx_queue_setup err=%d\n", ret);
     
     // start the device
-    ret = rte_eth_dev_start(port_id);
+    ret = rte_eth_dev_start(global_config.port_id);
     if (ret < 0) rte_exit(EXIT_FAILURE, "dev_start err=%d\n", ret);
 }
 
@@ -66,8 +67,8 @@ void send_raft_packet(struct raft_packet *pkt, uint16_t dst_id) {
     
     // eth_hdr is the first part of the packet
     struct rte_ether_hdr *eth_hdr = (struct rte_ether_hdr *)pkt_data;
-    rte_ether_addr_copy(&node_mac_map[raft_get_node_id()], &eth_hdr->src_addr); //src MAC
-    rte_ether_addr_copy(&node_mac_map[dst_id], &eth_hdr->dst_addr); //dst MAC
+    rte_ether_addr_copy(&global_config.mac_map[raft_get_node_id()], &eth_hdr->src_addr); //src MAC
+    rte_ether_addr_copy(&global_config.mac_map[dst_id], &eth_hdr->dst_addr); //dst MAC
     eth_hdr->ether_type = rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV4);
     
     // IPv4 header
@@ -81,10 +82,15 @@ void send_raft_packet(struct raft_packet *pkt, uint16_t dst_id) {
     ip_hdr->fragment_offset = rte_cpu_to_be_16(0);
     ip_hdr->time_to_live = 64;
     ip_hdr->next_proto_id = IPPROTO_UDP; //17 UDP protocol
-    // TODO: if the subnet is different, change the src/dst address
-    // 0xC0A80100 is 192.168.1.{id}
-    ip_hdr->src_addr = rte_cpu_to_be_32(0xC0A80100 | raft_get_node_id());
-    ip_hdr->dst_addr = rte_cpu_to_be_32(0xC0A80100 | dst_id);
+    const char *src_ip = global_config.ip_map[raft_get_node_id()];
+    const char *dst_ip = global_config.ip_map[dst_id];
+    if (!src_ip || !dst_ip) {
+        rte_exit(EXIT_FAILURE, "Missing IP mapping for node %u or %u\n", raft_get_node_id(), dst_id);
+    }
+    ip_hdr->src_addr = inet_addr(src_ip);
+    ip_hdr->dst_addr = inet_addr(dst_ip);
+
+
     
     // UDP header
     struct rte_udp_hdr *udp_hdr = (struct rte_udp_hdr *)(ip_hdr + 1);
@@ -102,12 +108,12 @@ void send_raft_packet(struct raft_packet *pkt, uint16_t dst_id) {
     udp_hdr->dgram_cksum = rte_ipv4_udptcp_cksum(ip_hdr, udp_hdr);
 
     // send the packet
-    rte_eth_tx_burst(port_id, 0, &mbuf, 1);
+    rte_eth_tx_burst(global_config.port_id, 0, &mbuf, 1);
 }
 
 void process_packets(void) {
     struct rte_mbuf *rx_bufs[BURST_SIZE];
-    uint16_t nb_rx = rte_eth_rx_burst(port_id, 0, rx_bufs, BURST_SIZE);
+    uint16_t nb_rx = rte_eth_rx_burst(global_config.port_id, 0, rx_bufs, BURST_SIZE);
     
     for (int i = 0; i < nb_rx; i++) {
         struct rte_ether_hdr *eth_hdr = rte_pktmbuf_mtod(rx_bufs[i], struct rte_ether_hdr *);

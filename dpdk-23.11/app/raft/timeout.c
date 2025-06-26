@@ -4,6 +4,7 @@
 #include <rte_cycles.h>
 #include <rte_random.h>
 
+
 static uint32_t g_min_ms, g_max_ms;
 
 void timeout_init(uint32_t min_ms, uint32_t max_ms)

@@ -6,7 +6,7 @@
 #include <rte_udp.h>
 #include "packet.h"
 
-void net_init(uint32_t self_id);
+void net_init(void);
 void send_raft_packet(struct raft_packet *pkt, uint16_t dst_id);
 void process_packets(void);
 

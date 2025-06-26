@@ -5,6 +5,7 @@ sources = files(
         'election.c',
         'networking.c',
         'timeout.c',
+        'config.c',
 )
 
 includes = include_directories('.', 'include')

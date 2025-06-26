@@ -8,8 +8,7 @@
 #include "election.h"
 #include "networking.h"
 #include "packet.h"
-
-// static uint32_t node_id;
+#include "config.h"
 
 // current time
 static uint64_t get_time_ms(void) {
@@ -42,18 +41,19 @@ static int lcore_main(__attribute__((unused)) void *arg) {
 
 int main(int argc, char **argv) {
     // initialize the Environment Abstraction Layer (EAL)
+    
+    if (load_config("config.json") < 0){
+        rte_exit(EXIT_FAILURE, "Failed to load config.json\n");
+    }
+
     int ret = rte_eal_init(argc, argv);
-    if (ret < 0) {
+    if (ret < 0){
         rte_exit(EXIT_FAILURE, "EAL init failed\n");
     }
+    // uint32_t id = atoi(argv[1]);
     
-    if (argc < 2) {
-        rte_exit(EXIT_FAILURE, "Usage: %s <node_id>\n", argv[0]);
-    }
-    uint32_t id = atoi(argv[1]);
-    
-    net_init(id);
-    raft_init(id);
+    net_init();
+    raft_init(global_config.node_id);
     
     printf("Node %u starting...\n", raft_get_node_id());
     
