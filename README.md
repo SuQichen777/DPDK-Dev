@@ -22,6 +22,14 @@ sudo apt update
 sudo apt install libnuma-dev
 ```
 
+### Raft
+I wrote a simple Raft implementation in C, which is located in the `dpdk-23.11/app/raft` directory. If you would like to build it, you need to run the following install commands.
+
+```bash
+sudo apt update
+sudo apt install libjansson-dev pkg-config libssl-dev libpcap-dev zlib1g-dev libarchive-dev libbsd-dev
+```
+
 #### Build DPDK
 ```bash
 meson setup build
