@@ -60,7 +60,7 @@ void net_init(void)
     if (ret < 0)
         rte_exit(EXIT_FAILURE, "dev_start err=%d\n", ret);
     struct rte_ether_addr actual_mac;
-    int ret = rte_eth_macaddr_get(global_config.port_id, &actual_mac);
+    ret = rte_eth_macaddr_get(global_config.port_id, &actual_mac);
     if (ret != 0) {
         printf("Failed to get MAC address for port %u: %s\n", global_config.port_id, rte_strerror(rte_errno));
     } else {
