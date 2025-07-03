@@ -1,0 +1,16 @@
+{
+  "node_id": 1,
+  "ip_map": {
+    "1": "10.10.1.102",
+    "2": "10.10.1.103",
+    "3": "10.10.1.104"
+  },
+  "mac_map": {
+    "1": "1c:34:da:72:fe:ae",
+    "2": "1c:34:da:72:e4:9e",
+    "3": "1c:34:da:72:f9:3e"
+  },
+  "port_id": 0,
+  "election_timeout_min_ms": 1200,
+  "election_timeout_max_ms": 2000
+}
