@@ -18,7 +18,7 @@ static uint64_t get_time_ms(void) {
 // DPDK work thread main function
 static int lcore_main(__attribute__((unused)) void *arg) {
     uint64_t last_heartbeat = 0;
-    
+    printf("lcore_main running on lcore %u\n", rte_lcore_id());
     while (1) {
         // looping
 
@@ -51,7 +51,7 @@ int main(int argc, char **argv) {
         rte_exit(EXIT_FAILURE, "EAL init failed\n");
     }
     // uint32_t id = atoi(argv[1]);
-    
+    rte_timer_subsystem_init();
     net_init();
     raft_init(global_config.node_id);
     
