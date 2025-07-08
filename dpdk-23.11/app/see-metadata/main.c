@@ -43,10 +43,13 @@ cleanup:
 }
 
 int main(int argc, char **argv) {
+    printf("Start\n");
     if (rte_eal_init(argc, argv) < 0) {
         fprintf(stderr, "Failed to initialize EAL\n");
         return 1;
     }
+
+    printf("EAL inited\n");
 
     uint16_t port_id = 0;
     if (!rte_eth_dev_is_valid_port(port_id)) {
@@ -54,6 +57,22 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    struct rte_eth_conf port_conf = { .rxmode = { .max_rx_pkt_len = RTE_ETHER_MAX_LEN } };
+    if (rte_eth_dev_configure(port_id, 1, 1, &port_conf) < 0) {
+        printf("Failed to configure port\n");
+        return 1;
+    }
+
+    if (rte_eth_dev_start(port_id) < 0) {
+        printf("Failed to start port\n");
+        return 1;
+    }
+
+    printf("Port started, calling print_eth_xstats\n");
     print_eth_xstats(port_id);
+
+    printf("Done.\n");
+
     return 0;
 }
+
