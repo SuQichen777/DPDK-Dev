@@ -33,3 +33,19 @@ void print_eth_xstats(uint16_t port_id) {
         printf("  %-32s : %" PRIu64 "\n", xstat_names[i].name, xstats[i].value);
     }
 }
+
+int main(int argc, char **argv) {
+    if (rte_eal_init(argc, argv) < 0) {
+        fprintf(stderr, "Failed to initialize EAL\n");
+        return 1;
+    }
+
+    uint16_t port_id = 0;
+    if (!rte_eth_dev_is_valid_port(port_id)) {
+        fprintf(stderr, "Invalid port id %u\n", port_id);
+        return 1;
+    }
+
+    print_eth_xstats(port_id);
+    return 0;
+}
