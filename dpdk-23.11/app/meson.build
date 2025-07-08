@@ -36,6 +36,7 @@ apps = [
         'test-sad',
         'test-security-perf',
         'raft',
+        'see-metadata',
 ]
 
 if get_option('tests')
