@@ -1,13 +1,15 @@
 #include "config.h"     
 #include "timeout.h" 
 #include "latency.h"
+#include "packet.h"
 
 #include <arpa/inet.h>
 #include <string.h>
 #include <stdio.h>
 #include <rte_flow.h>
+#include <rte_version.h> 
 
-#if RTE_VERSION_NUM >= RTE_VERSION_NUM(23,11,0,0)
+#if RTE_VER_YEAR > 23 || (RTE_VER_YEAR == 23 && RTE_VER_MONTH >= 11)
 #define HAS_LATENCY_FIELD 1
 #else
 #define HAS_LATENCY_FIELD 0
