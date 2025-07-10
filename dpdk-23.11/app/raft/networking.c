@@ -2,6 +2,7 @@
 #include "networking.h"
 #include "election.h"
 #include "config.h"
+#include "latency.h"
 #include <stdlib.h>
 #include <rte_ethdev.h>
 #include <rte_ether.h>
@@ -59,6 +60,9 @@ void net_init(void)
     ret = rte_eth_dev_start(global_config.port_id);
     if (ret < 0)
         rte_exit(EXIT_FAILURE, "dev_start err=%d\n", ret);
+    if (latency_init_flows(global_config.port_id,
+                       global_config.node_id) < 0)
+        rte_exit(EXIT_FAILURE, "Latency flow init failed\n");
     struct rte_ether_addr actual_mac;
     ret = rte_eth_macaddr_get(global_config.port_id, &actual_mac);
     if (ret != 0) {
