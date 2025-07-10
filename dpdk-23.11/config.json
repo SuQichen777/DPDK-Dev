@@ -6,11 +6,12 @@
     "3": "10.10.1.104"
   },
   "mac_map": {
-    "1": "b8:3f:d2:b9:22:09",
-    "2": "0c:42:a1:da:aa:47",
-    "3": "b8:3f:d2:54:8e:ff"
+    "1": "1c:34:da:72:e4:be",
+    "2": "1c:34:da:72:f9:3e",
+    "3": "1c:34:da:72:e4:b6"
   },
   "port_id": 0,
   "election_timeout_min_ms": 1200,
   "election_timeout_max_ms": 2000
 }
+
