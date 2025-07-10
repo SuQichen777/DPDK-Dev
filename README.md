@@ -27,7 +27,7 @@ I wrote a simple Raft implementation in C, which is located in the `dpdk-23.11/a
 
 ```bash
 sudo apt update
-sudo apt install libjansson-dev pkg-config libssl-dev libpcap-dev zlib1g-dev libarchive-dev libbsd-dev
+sudo apt install libjansson-dev pkg-config libssl-dev libpcap-dev zlib1g-dev libarchive-dev libbsd-dev ibverbs-providers rdma-core librdmacm-dev libibverbs-dev
 ```
 
 #### Build DPDK
