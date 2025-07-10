@@ -30,6 +30,8 @@ sudo apt update
 sudo apt install libjansson-dev pkg-config libssl-dev libpcap-dev zlib1g-dev libarchive-dev libbsd-dev ibverbs-providers rdma-core librdmacm-dev libibverbs-dev
 ```
 
+Please make sure you have `config.json` where you run the Raft application. There is already one under `dpdk-23.11`, so you can cd to this path, change corresponding values in the `config.json` file, and run the Raft application using `sudo ./build/app/dpdk-raft -l 0` (lcore used can be changed). 
+
 #### Build DPDK
 ```bash
 meson setup build
