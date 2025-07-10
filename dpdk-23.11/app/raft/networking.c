@@ -39,7 +39,7 @@ void net_init(void)
     if (mbuf_pool == NULL)
         rte_exit(EXIT_FAILURE, "Cannot create mbuf pool: %s\n", rte_strerror(rte_errno));
     // ethdev initialization
-    global_config.port_id = 0;
+    // global_config.port_id = 0;
     int ret;
     ret = rte_eth_dev_configure(global_config.port_id, 1, 1, &port_conf_default);
     if (ret < 0)
