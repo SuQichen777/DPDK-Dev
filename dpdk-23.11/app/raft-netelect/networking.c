@@ -3,6 +3,7 @@
 #include "election.h"
 #include "config.h"
 #include "latency.h"
+#include "packet.h"
 #include <stdlib.h>
 #include <rte_ethdev.h>
 #include <rte_ether.h>
@@ -201,7 +202,29 @@ void process_packets(void)
             rte_pktmbuf_free(rx_bufs[i]);
             continue;
         }
+        // deal with ps broadcast packet
+        uint8_t *payload = (uint8_t *)(udp_hdr + 1);
+        uint8_t  mtype   = *payload;
 
+        if (mtype == MSG_PS_BROADCAST) {
+            struct ps_broadcast_packet *ps =
+                (struct ps_broadcast_packet *)payload;
+
+            uint32_t peer = ps->node_id;
+            printf("Node %u received PS broadcast from %u, penalty=%u\n",
+                   raft_get_node_id(), peer, ps->penalty);
+            uint64_t now  = rte_get_tsc_cycles();
+
+            // simple RTT measurement
+            double hz       = (double)rte_get_timer_hz();
+            double rtt_ms   = (now - ps->tx_ts) * 2000.0 / hz;   // double to calculate RTT
+
+            sense_update(peer, rtt_ms); // update Jacobson RTT
+            last_ps_rx_ts[peer] = now; // TODO: FD
+
+            rte_pktmbuf_free(rx_bufs[i]);
+            continue;//skip to next packet
+        }
         struct raft_packet *raft_pkt = (struct raft_packet *)(udp_hdr + 1);
         raft_handle_packet(raft_pkt, 0);
         rte_pktmbuf_free(rx_bufs[i]);

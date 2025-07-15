@@ -11,6 +11,7 @@ static uint32_t g_min_ms, g_max_ms;
 // RTT values for each node
 static double mu[NUM_NODES + 1] = {0};     // mean value
 static double sigma[NUM_NODES + 1] = {0};  // standard deviation
+static uint64_t last_ps_rx_ts[NUM_NODES + 1] = {0};
 // Jacobson
 // will be read from config file later
 static const double ALPHA = 0.125;   /* 1/8  */
