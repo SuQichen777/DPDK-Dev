@@ -35,6 +35,21 @@ double get_rto(uint32_t peer)
 {
     return mu[peer] + 4.0 * sigma[peer];
 }
+double compute_penalty(uint32_t self_id)
+{
+    double sum = 0.0;
+    int    cnt = 0;
+
+    for (uint32_t p = 1; p <= NUM_NODES; ++p) {
+        if (p == self_id) continue;        // skip self
+        if (mu[p] > 0.0) {
+            sum += mu[p];
+            cnt++;
+        }
+    }
+    if (cnt == 0) return 0.0;              //no sample no penalty
+    return sum / cnt;                      //TODO: Change to the formula of NetElect
+}
 
 void record_ps_rx(uint32_t peer, uint64_t tsc)
 {

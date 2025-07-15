@@ -166,14 +166,16 @@ void raft_send_heartbeat(void)
 
 void ps_broadcast_send(void)
 {
+    raft_node.penalty = compute_penalty(raft_node.self_id);
     struct ps_broadcast_packet pkt = {
         .msg_type = MSG_PS_BROADCAST,
         .term     = raft_node.current_term,
         .node_id  = raft_node.self_id,
-        .penalty  = raft_node.penalty,            // TODO: Set the penalty value
+        .penalty  = raft_node.penalty,
         .tx_ts    = rte_get_tsc_cycles()
     };
     raft_node.last_ps_tx_ts = pkt.tx_ts; 
+    printf("Node %u sending PS %.2f ms\n", raft_node.self_id, raft_node.penalty);
     broadcast_ps_packet(&pkt);
 }
 
