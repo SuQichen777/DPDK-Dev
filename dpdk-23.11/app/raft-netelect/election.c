@@ -30,6 +30,16 @@ static void broadcast_raft_packet(struct raft_packet *pkt)
     }
 }
 
+static void broadcast_ps_packet(struct ps_broadcast_packet *pkt)
+{
+    for (uint32_t peer = 1; peer <= NUM_NODES; peer++)
+    {
+        if (peer == raft_node.self_id)
+            continue;
+        send_ps_packet(pkt, peer);
+    }
+}
+
 
 void raft_init(uint32_t id)
 {
@@ -154,7 +164,7 @@ void raft_send_heartbeat(void)
     broadcast_raft_packet(&pkt);
 }
 
-static void ps_broadcast_send(void)
+void ps_broadcast_send(void)
 {
     struct ps_broadcast_packet pkt = {
         .msg_type = MSG_PS_BROADCAST,

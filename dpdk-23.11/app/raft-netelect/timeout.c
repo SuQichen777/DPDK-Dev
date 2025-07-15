@@ -4,7 +4,8 @@
 #include <rte_lcore.h>
 #include <rte_cycles.h>
 #include <rte_random.h>
-#include <stdio.h> 
+#include <stdio.h>
+#include <math.h> 
 
 static uint32_t g_min_ms, g_max_ms;
 // RTT values for each node
