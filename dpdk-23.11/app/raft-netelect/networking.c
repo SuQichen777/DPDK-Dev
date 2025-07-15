@@ -4,6 +4,7 @@
 #include "config.h"
 #include "latency.h"
 #include "packet.h"
+#include "timeout.h"
 #include <stdlib.h>
 #include <rte_ethdev.h>
 #include <rte_ether.h>
@@ -211,8 +212,7 @@ void process_packets(void)
                 (struct ps_broadcast_packet *)payload;
 
             uint32_t peer = ps->node_id;
-            printf("Node %u received PS broadcast from %u, penalty=%u\n",
-                   raft_get_node_id(), peer, ps->penalty);
+            printf("Node %u received PS broadcast from %u, penalty=%.2f\n", raft_get_node_id(), peer, ps->penalty);
             uint64_t now  = rte_get_tsc_cycles();
 
             // simple RTT measurement
@@ -220,7 +220,7 @@ void process_packets(void)
             double rtt_ms   = (now - ps->tx_ts) * 2000.0 / hz;   // double to calculate RTT
 
             sense_update(peer, rtt_ms); // update Jacobson RTT
-            last_ps_rx_ts[peer] = now; // TODO: FD
+            record_ps_rx(peer, now);  // TODO: FD
 
             rte_pktmbuf_free(rx_bufs[i]);
             continue;//skip to next packet

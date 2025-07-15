@@ -36,6 +36,11 @@ double get_rto(uint32_t peer)
     return mu[peer] + 4.0 * sigma[peer];
 }
 
+void record_ps_rx(uint32_t peer, uint64_t tsc)
+{
+    last_ps_rx_ts[peer] = tsc;
+}
+
 void timeout_init(uint32_t min_ms, uint32_t max_ms)
 {
     g_min_ms = min_ms;

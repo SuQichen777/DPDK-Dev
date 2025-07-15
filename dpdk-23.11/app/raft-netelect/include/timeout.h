@@ -17,4 +17,5 @@ void timeout_start_election(struct rte_timer *t,
 void timeout_stop(struct rte_timer *t);
 void sense_update(uint32_t peer, double sample_ms);
 double get_rto(uint32_t peer);
+void record_ps_rx(uint32_t peer, uint64_t tsc);
 #endif
