@@ -37,6 +37,7 @@ apps = [
         'test-security-perf',
         'raft',
         'see-metadata',
+        'raft-netelect',
 ]
 
 if get_option('tests')
