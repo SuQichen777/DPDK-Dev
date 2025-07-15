@@ -31,7 +31,7 @@ static int lcore_main(void *arg)
 {
     struct stats_lcore_params *st = arg;
     static struct rte_timer   stats_timer;
-    static struct rte_timer latency_timer;
+    static struct rte_timer ps_timer;
     static int timer_init_done = 0;
 
     if (!timer_init_done) {
@@ -39,10 +39,10 @@ static int lcore_main(void *arg)
         rte_timer_init(&stats_timer);
         rte_timer_reset(&stats_timer, hz * 10, PERIODICAL,
                         rte_lcore_id(), stats_timer_cb, st);
-        rte_timer_init(&latency_timer);
-        rte_timer_reset(&latency_timer, hz / 200, PERIODICAL,
+        rte_timer_init(&ps_timer);
+        rte_timer_reset(&ps_timer, hz / 200, PERIODICAL,
                         rte_lcore_id(),
-                        (rte_timer_cb_t)latency_poll_once,
+                        (rte_timer_cb_t)ps_broadcast_send,
                         (void *)(uintptr_t)global_config.port_id);
         timer_init_done = 1;
     }
