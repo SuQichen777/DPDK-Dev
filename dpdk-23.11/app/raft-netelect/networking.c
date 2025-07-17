@@ -30,10 +30,9 @@ static const struct rte_eth_conf port_conf_default = {
 // calculate the tsc offset for each node
 typedef struct
 {
-    bool ready;            // scale and offset are ready
-    uint64_t send0, recv0; // timestamps of the first packet
-    double scale;          // local_Hz / remote_Hz
-    double offset;         // recv0 - send0*scale
+    bool ready;    // scale and offset are ready
+    double scale;  // local_Hz / remote_Hz
+    double offset; // recv0 - send0*scale
 } sync_t;
 static sync_t sync_tab[NUM_NODES + 1] = {0};
 void net_init(void)
@@ -179,8 +178,8 @@ void send_ps_packet(struct ps_broadcast_packet *pkt, uint16_t dst_id)
     /* payload */
     struct ps_broadcast_packet *ps = (struct ps_broadcast_packet *)(udp + 1);
     *ps = *pkt;
-    if (ps->tx_ts == 0)
-        ps->tx_ts = rte_get_tsc_cycles();
+    ps->tx_ts = rte_get_tsc_cycles();
+    ps->remote_hz = (uint32_t)rte_get_tsc_hz();
 
     /* checksums */
     ip->hdr_checksum = rte_ipv4_cksum(ip);
@@ -224,31 +223,18 @@ void process_packets(void)
         {
             struct ps_broadcast_packet *ps = (void *)payload;
             uint32_t peer = ps->node_id;
-            uint64_t send_ts = ps->tx_ts;            
+            uint64_t send_ts = ps->tx_ts;
+            uint32_t rem_hz = ps->remote_hz;
             uint64_t recv_ts = rte_get_tsc_cycles();
-            sync_t *S = &sync_tab[peer];
 
-            // First time: record send_ts and recv_ts
-            if (!S->ready && S->send0 == 0)
-            {
-                S->send0 = send_ts;
-                S->recv0 = recv_ts;
-                rte_pktmbuf_free(rx_bufs[i]);
-                continue;
-            }
-            // Second time: calculate scale and offset
+            sync_t *S = &sync_tab[peer];
             if (!S->ready)
             {
-                uint64_t d_send = send_ts - S->send0 ?: 1; // avoid division by zero
-                uint64_t d_recv = recv_ts - S->recv0;
-                S->scale = (double)d_recv / (double)d_send;
-                S->offset = (double)S->recv0 - (double)S->send0 * S->scale;
+                S->scale = (double)rte_get_tsc_hz() / (double)rem_hz;
+                S->offset = (double)recv_ts - (double)send_ts * S->scale;
                 S->ready = true;
-                rte_pktmbuf_free(rx_bufs[i]);
-                continue;
             }
 
-            // normal case: calculate the offset
             double recv_pred = (double)send_ts * S->scale + S->offset;
             double owd_cycles = (double)recv_ts - recv_pred;
             if (owd_cycles < 0)
@@ -259,9 +245,8 @@ void process_packets(void)
             sense_update(peer, rtt_ms);
             record_ps_rx(peer, recv_ts);
 
-            printf("Node %u ⟵ PS from %u | "
-                   "sent=%" PRIu64 " recv=%" PRIu64
-                   " | rtt=%.3f ms penalty=%.3f\n",
+            printf("Node %u ⟵ PS from %u | sent=%" PRIu64
+                   " recv=%" PRIu64 " | rtt=%.3f ms  penalty=%.3f\n",
                    raft_get_node_id(), peer, send_ts, recv_ts,
                    rtt_ms, ps->penalty);
 

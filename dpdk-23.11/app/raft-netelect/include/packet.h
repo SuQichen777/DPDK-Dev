@@ -26,6 +26,7 @@ struct ps_broadcast_packet {
     uint32_t node_id;    // this node's ID
     float penalty; // penalty value
     uint64_t tx_ts; // rte_get_tsc_cycles()
+    uint32_t remote_hz;
 } __attribute__((packed));
     
 #endif // PACKET_H
