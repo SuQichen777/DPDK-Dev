@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <rte_timer.h>
+#include <rte_cycles.h>
+#include <rte_time.h>
 #include "timeout.h"
 #include "config.h"
 
