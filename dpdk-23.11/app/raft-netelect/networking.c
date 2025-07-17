@@ -30,9 +30,10 @@ static const struct rte_eth_conf port_conf_default = {
 // calculate the tsc offset for each node
 typedef struct
 {
-    bool ready;    // scale and offset are ready
-    double scale;  // local_Hz / remote_Hz
-    double offset; // recv0 - send0*scale
+    bool ready;   // scale and offset are ready
+    double scale; // local_Hz / remote_Hz
+    double offset;
+    double best_owd;
 } sync_t;
 static sync_t sync_tab[NUM_NODES + 1] = {0};
 void net_init(void)
@@ -231,16 +232,25 @@ void process_packets(void)
             if (!S->ready)
             {
                 S->scale = (double)rte_get_tsc_hz() / (double)rem_hz;
-                S->offset = (double)recv_ts - (double)send_ts * S->scale;
+                // S->offset = (double)recv_ts - (double)send_ts * S->scale;
+                double first_owd = fabs((double)recv_ts - (double)send_ts * S->scale);
+                S->best_owd = first_owd;
+                S->offset = (double)recv_ts - (double)send_ts * S->scale - S->best_owd;
                 S->ready = true;
             }
 
             double recv_pred = (double)send_ts * S->scale + S->offset;
-            double owd_cycles = (double)recv_ts - recv_pred;
-            if (owd_cycles < 0)
-                owd_cycles = -owd_cycles;
+            // double owd_cycles = (double)recv_ts - recv_pred;
+            // if (owd_cycles < 0)
+            // owd_cycles = -owd_cycles;
+            double owd_cycles = fabs((double)recv_ts - recv_pred);
+            if (owd_cycles < S->best_owd)
+            {
+                S->best_owd = owd_cycles;
+                S->offset = (double)recv_ts - (double)send_ts * S->scale - S->best_owd;
+            }
 
-            double rtt_ms = owd_cycles * 2000.0 / (double)rte_get_tsc_hz();
+            double rtt_ms = S->best_owd * 2000.0 / (double)rte_get_tsc_hz();
 
             sense_update(peer, rtt_ms);
             record_ps_rx(peer, recv_ts);
