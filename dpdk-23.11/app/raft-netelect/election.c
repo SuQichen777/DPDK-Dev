@@ -175,7 +175,6 @@ void ps_broadcast_send(void)
         .tx_ts    = rte_get_tsc_cycles()
     };
     raft_node.last_ps_tx_ts = pkt.tx_ts; 
-    printf("Node %u sending PS %.2f ms\n", raft_node.self_id, raft_node.penalty);
     broadcast_ps_packet(&pkt);
 }
 
