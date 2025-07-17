@@ -214,13 +214,14 @@ void process_packets(void)
 
             uint32_t peer = ps->node_id;
             uint64_t now  = rte_get_tsc_cycles();
-            printf("Node %u received PS broadcast from %u, penalty=%.2f\n",raft_get_node_id(), peer, ps->penalty);
+            
 
             // simple RTT measurement
             double hz       = (double)rte_get_timer_hz();
             double rtt_ms   = (now - ps->tx_ts) * 2000.0 / hz;   // double to calculate RTT
             //print rx time, now, and rtt
-            printf("It is sent at %.2f, received at %.2f, rtt is %.2f", ps->tx_ts, now, rtt_ms);
+            printf("Node %u received PS broadcast from %u, penalty=%.2f\n. It is sent at %.2f, received at %.2f, rtt is %.2f\n",
+                raft_get_node_id(), peer, ps->penalty, ps->tx_ts, now, rtt_ms);
             sense_update(peer, rtt_ms); // update Jacobson RTT
             record_ps_rx(peer, now);  // TODO: FD
 
