@@ -167,6 +167,8 @@ void send_ps_packet(struct ps_broadcast_packet *pkt, uint16_t dst_id)
     /* payload */
     struct ps_broadcast_packet *ps = (struct ps_broadcast_packet *)(udp + 1);
     *ps = *pkt;
+    if (ps->tx_ts == 0)
+        ps->tx_ts = rte_get_tsc_cycles();
 
     /* checksums */
     ip->hdr_checksum  = rte_ipv4_cksum(ip);
@@ -213,17 +215,17 @@ void process_packets(void)
                 (struct ps_broadcast_packet *)payload;
 
             uint32_t peer = ps->node_id;
-            double now  = rte_get_tsc_cycles();
-            
-
-            // simple RTT measurement
-            double hz       = (double)rte_get_timer_hz();
-            double rtt_ms   = (now - ps->tx_ts) * 2000.0 / hz;   // double to calculate RTT
-            //print rx time, now, and rtt
-            printf("Node %u received PS broadcast from %u, penalty=%.2f. It is sent at %.6f, received at %.6f, rtt is %.6f\n",
-                raft_get_node_id(), peer, ps->penalty, ps->tx_ts, now, rtt_ms);
-            sense_update(peer, rtt_ms); // update Jacobson RTT
-            record_ps_rx(peer, now);  // TODO: FD
+            uint64_t now_cycles  = rte_get_tsc_cycles();
+            uint64_t diff_cycles = now_cycles - ps->tx_ts;
+            double rtt_ms = diff_cycles * 2000.0 / (double)rte_get_tsc_hz();
+            sense_update(peer, rtt_ms);
+            record_ps_rx(peer, now_cycles);  // TODO: FD
+            printf("Node %u ⟵ PS from %u | "
+                   "sent=%" PRIu64 "  recv=%" PRIu64
+                   " | rtt=%.3f ms  penalty=%.3f\n",
+                   raft_get_node_id(), peer,
+                  ps->tx_ts, now_cycles,
+                   rtt_ms, ps->penalty);
 
             rte_pktmbuf_free(rx_bufs[i]);
             continue;//skip to next packet
