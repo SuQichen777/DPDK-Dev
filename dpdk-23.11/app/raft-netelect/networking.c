@@ -213,7 +213,7 @@ void process_packets(void)
                 (struct ps_broadcast_packet *)payload;
 
             uint32_t peer = ps->node_id;
-            uint64_t now  = rte_get_tsc_cycles();
+            double now  = rte_get_tsc_cycles();
             
 
             // simple RTT measurement
