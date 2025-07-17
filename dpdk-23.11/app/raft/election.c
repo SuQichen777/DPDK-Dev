@@ -21,6 +21,11 @@
 static raft_node_t raft_node;
 static struct rte_timer election_timer;
 static void election_timeout_cb(struct rte_timer *t, void *arg);
+static inline uint64_t get_wall_time_ms() {
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    return ts.tv_sec * 1000ULL + ts.tv_nsec / 1000000ULL;
+}
 
 static void broadcast_raft_packet(struct raft_packet *pkt)
 {
@@ -46,14 +51,14 @@ void raft_init(uint32_t id)
     timeout_start_election(&election_timer, election_timeout_cb, NULL);
 }
 
-static void start_election(uint64_t now_ms)
+static void start_election()
 {
 
     raft_node.current_state = STATE_CANDIDATE;
     raft_node.current_term++;
     raft_node.voted_for = raft_node.self_id;
     raft_node.vote_granted = 1;
-    raft_node.last_heard_ms = now_ms;
+    raft_node.last_heard_ms = get_wall_time_ms();
 
     printf("Node %u starting election for term %u\n", raft_node.self_id, raft_node.current_term);
 
@@ -115,9 +120,7 @@ void raft_handle_packet(const struct raft_packet *pkt, uint16_t port)
             if (raft_node.vote_granted > NUM_NODES / 2)
             {
                 raft_node.current_state = STATE_LEADER;
-                struct timespec ts;
-                clock_gettime(CLOCK_REALTIME, &ts);
-                uint64_t elect_time = ts.tv_sec * 1000ULL + ts.tv_nsec / 1000000ULL;
+                uint64_t elect_time = get_wall_time_ms(); 
                 printf("[RAFT] Node %u: Elected as leader, T_elect = %lu ms\n",
                     raft_node.self_id, elect_time);
                 raft_send_heartbeat(); 
@@ -177,13 +180,10 @@ static void election_timeout_cb(struct rte_timer *t, void *arg)
     (void)t; 
     (void)arg;
 
-    struct timespec ts;
-    clock_gettime(CLOCK_REALTIME, &ts);
-    uint64_t now_ms = ts.tv_sec * 1000ULL + ts.tv_nsec / 1000000ULL;
-
+    uint64_t detect_time = get_wall_time_ms();
     if (raft_node.current_state != STATE_LEADER){
         printf("[RAFT] Node %u: Detected leader failure, T_detect = %lu ms\n",
-               raft_node.self_id, now_ms);
-        start_election(now_ms);
+               raft_node.self_id, detect_time);
+        start_election();
     }
 }
