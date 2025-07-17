@@ -5,7 +5,7 @@
 #include <stdint.h>
 #define RAFT_PORT 9999
 #define RAFT_PACKET_SIZE sizeof(struct raft_packet)
-#define NUM_NODES 3 //TODO: Set the number of nodes in the cluster
+#define NUM_NODES 7 //TODO: Set the number of nodes in the cluster
 
 // three message types for Raft protocol
 #define MSG_VOTE_REQUEST   1
