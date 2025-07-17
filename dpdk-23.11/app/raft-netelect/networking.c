@@ -13,7 +13,8 @@
 #include <rte_timer.h>
 #include <rte_errno.h>
 #include <arpa/inet.h>
-#include <inttypes.h> 
+#include <inttypes.h>
+#include <stdbool.h>
 
 #define MBUF_POOL_SIZE 4096
 #define BURST_SIZE 32
@@ -26,7 +27,9 @@ static const struct rte_eth_conf port_conf_default = {
     // .txmode = { .offloads = RTE_ETH_TX_OFFLOAD_MBUF_FAST_FREE }
     .txmode = {.offloads = 0}};
 
-
+// calculate the tsc offset for each node
+static double offset_cycles[NUM_NODES + 1] = {0};
+static bool offset_valid[NUM_NODES + 1] = {0};
 
 void net_init(void)
 {
@@ -59,17 +62,20 @@ void net_init(void)
     if (ret < 0)
         rte_exit(EXIT_FAILURE, "dev_start err=%d\n", ret);
     if (latency_init_flows(global_config.port_id,
-                       global_config.node_id) < 0)
+                           global_config.node_id) < 0)
         rte_exit(EXIT_FAILURE, "Latency flow init failed\n");
     struct rte_ether_addr actual_mac;
     ret = rte_eth_macaddr_get(global_config.port_id, &actual_mac);
-    if (ret != 0) {
+    if (ret != 0)
+    {
         printf("Failed to get MAC address for port %u: %s\n", global_config.port_id, rte_strerror(rte_errno));
-    } else {
+    }
+    else
+    {
         printf("Actual MAC address for port %u: %02x:%02x:%02x:%02x:%02x:%02x\n",
-            global_config.port_id,
-            actual_mac.addr_bytes[0], actual_mac.addr_bytes[1], actual_mac.addr_bytes[2],
-            actual_mac.addr_bytes[3], actual_mac.addr_bytes[4], actual_mac.addr_bytes[5]);
+               global_config.port_id,
+               actual_mac.addr_bytes[0], actual_mac.addr_bytes[1], actual_mac.addr_bytes[2],
+               actual_mac.addr_bytes[3], actual_mac.addr_bytes[4], actual_mac.addr_bytes[5]);
     }
 }
 
@@ -134,35 +140,36 @@ void send_raft_packet(struct raft_packet *pkt, uint16_t dst_id)
 void send_ps_packet(struct ps_broadcast_packet *pkt, uint16_t dst_id)
 {
     struct rte_mbuf *mbuf = rte_pktmbuf_alloc(mbuf_pool);
-    if (!mbuf) return;
+    if (!mbuf)
+        return;
 
     /* Ethernet + IPv4 + UDP + ps_broadcast_packet */
     char *data = rte_pktmbuf_append(mbuf,
-        sizeof(struct ps_broadcast_packet) +
-        sizeof(struct rte_udp_hdr) +
-        sizeof(struct rte_ipv4_hdr) +
-        sizeof(struct rte_ether_hdr));
+                                    sizeof(struct ps_broadcast_packet) +
+                                        sizeof(struct rte_udp_hdr) +
+                                        sizeof(struct rte_ipv4_hdr) +
+                                        sizeof(struct rte_ether_hdr));
 
     struct rte_ether_hdr *eth = (struct rte_ether_hdr *)data;
     rte_ether_addr_copy(&global_config.mac_map[raft_get_node_id()], &eth->src_addr);
-    rte_ether_addr_copy(&global_config.mac_map[dst_id],             &eth->dst_addr);
+    rte_ether_addr_copy(&global_config.mac_map[dst_id], &eth->dst_addr);
     eth->ether_type = rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV4);
 
-    struct rte_ipv4_hdr *ip  = (struct rte_ipv4_hdr *)(eth + 1);
-    ip->version_ihl   = 0x45;
-    ip->time_to_live  = 64;
+    struct rte_ipv4_hdr *ip = (struct rte_ipv4_hdr *)(eth + 1);
+    ip->version_ihl = 0x45;
+    ip->time_to_live = 64;
     ip->next_proto_id = IPPROTO_UDP;
-    ip->total_length  = rte_cpu_to_be_16(sizeof(struct rte_ipv4_hdr) +
-                                         sizeof(struct rte_udp_hdr) +
-                                         sizeof(struct ps_broadcast_packet));
+    ip->total_length = rte_cpu_to_be_16(sizeof(struct rte_ipv4_hdr) +
+                                        sizeof(struct rte_udp_hdr) +
+                                        sizeof(struct ps_broadcast_packet));
     ip->src_addr = inet_addr(global_config.ip_map[raft_get_node_id()]);
     ip->dst_addr = inet_addr(global_config.ip_map[dst_id]);
 
     struct rte_udp_hdr *udp = (struct rte_udp_hdr *)(ip + 1);
     udp->src_port = rte_cpu_to_be_16(RAFT_PORT);
     udp->dst_port = rte_cpu_to_be_16(RAFT_PORT);
-    udp->dgram_len= rte_cpu_to_be_16(sizeof(struct rte_udp_hdr) +
-                                     sizeof(struct ps_broadcast_packet));
+    udp->dgram_len = rte_cpu_to_be_16(sizeof(struct rte_udp_hdr) +
+                                      sizeof(struct ps_broadcast_packet));
 
     /* payload */
     struct ps_broadcast_packet *ps = (struct ps_broadcast_packet *)(udp + 1);
@@ -171,13 +178,11 @@ void send_ps_packet(struct ps_broadcast_packet *pkt, uint16_t dst_id)
         ps->tx_ts = rte_get_tsc_cycles();
 
     /* checksums */
-    ip->hdr_checksum  = rte_ipv4_cksum(ip);
-    udp->dgram_cksum  = rte_ipv4_udptcp_cksum(ip, udp);
+    ip->hdr_checksum = rte_ipv4_cksum(ip);
+    udp->dgram_cksum = rte_ipv4_udptcp_cksum(ip, udp);
 
     rte_eth_tx_burst(global_config.port_id, 0, &mbuf, 1);
 }
-
-
 
 void process_packets(void)
 {
@@ -208,27 +213,38 @@ void process_packets(void)
         }
         // deal with ps broadcast packet
         uint8_t *payload = (uint8_t *)(udp_hdr + 1);
-        uint8_t  mtype   = *payload;
+        uint8_t mtype = *payload;
 
-        if (mtype == MSG_PS_BROADCAST) {
+        if (mtype == MSG_PS_BROADCAST)
+        {
             struct ps_broadcast_packet *ps =
                 (struct ps_broadcast_packet *)payload;
 
             uint32_t peer = ps->node_id;
-            uint64_t now_cycles  = rte_get_tsc_cycles();
+            uint64_t now_cycles = rte_get_tsc_cycles();
             uint64_t diff_cycles = now_cycles - ps->tx_ts;
-            double rtt_ms = diff_cycles * 2000.0 / (double)rte_get_tsc_hz();
+            if (!offset_valid[peer])
+            {
+                offset_cycles[peer] = (double)diff_cycles;
+                offset_valid[peer] = true;
+                rte_pktmbuf_free(rx_bufs[i]);
+                continue;
+            }
+            // double rtt_ms = diff_cycles * 2000.0 / (double)rte_get_tsc_hz();
+            double owd_cycles = (double)diff_cycles - offset_cycles[peer]; //one-way delay
+            if (owd_cycles < 0) owd_cycles = -owd_cycles;
+            double rtt_ms = owd_cycles * 2000.0 / (double)rte_get_tsc_hz(); //TODO: change to real rtt
             sense_update(peer, rtt_ms);
-            record_ps_rx(peer, now_cycles);  // TODO: FD
+            record_ps_rx(peer, now_cycles); // TODO: FD
             printf("Node %u ⟵ PS from %u | "
                    "sent=%" PRIu64 "  recv=%" PRIu64
                    " | rtt=%.3f ms  penalty=%.3f\n",
                    raft_get_node_id(), peer,
-                  ps->tx_ts, now_cycles,
+                   ps->tx_ts, now_cycles,
                    rtt_ms, ps->penalty);
 
             rte_pktmbuf_free(rx_bufs[i]);
-            continue;//skip to next packet
+            continue; // skip to next packet
         }
         struct raft_packet *raft_pkt = (struct raft_packet *)(udp_hdr + 1);
         raft_handle_packet(raft_pkt, 0);
