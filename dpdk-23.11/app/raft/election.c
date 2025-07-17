@@ -115,7 +115,9 @@ void raft_handle_packet(const struct raft_packet *pkt, uint16_t port)
             if (raft_node.vote_granted > NUM_NODES / 2)
             {
                 raft_node.current_state = STATE_LEADER;
-                uint64_t elect_time = rte_get_timer_cycles() * 1000 / rte_get_timer_hz();
+                struct timespec ts;
+                clock_gettime(CLOCK_REALTIME, &ts);
+                uint64_t elect_time = ts.tv_sec * 1000ULL + ts.tv_nsec / 1000000ULL;
                 printf("[RAFT] Node %u: Elected as leader, T_elect = %lu ms\n",
                     raft_node.self_id, elect_time);
                 raft_send_heartbeat(); 
@@ -174,7 +176,11 @@ static void election_timeout_cb(struct rte_timer *t, void *arg)
 {
     (void)t; 
     (void)arg;
-    uint64_t now_ms = rte_get_timer_cycles() * 1000 / rte_get_timer_hz();
+
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    uint64_t now_ms = ts.tv_sec * 1000ULL + ts.tv_nsec / 1000000ULL;
+
     if (raft_node.current_state != STATE_LEADER){
         printf("[RAFT] Node %u: Detected leader failure, T_detect = %lu ms\n",
                raft_node.self_id, now_ms);
