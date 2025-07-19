@@ -49,10 +49,6 @@ static void fail_enable_cb(__rte_unused struct rte_timer *t, void *arg)
                     fail_disable_cb, NULL);
 }
 
-
-
-
-
 /* End of Test Auto Fail */
 
 /* Timer for microsecond */
@@ -152,13 +148,21 @@ void raft_handle_packet(const struct raft_packet *pkt, uint16_t port)
                 uint64_t elect_time = monotonic_us();
                 printf("[RAFT] Node %u: Elected as leader, T_elect = %lu µs, [Election latency] is %lu µs\n",
                        raft_node.self_id, elect_time, elect_time - election_start_time);
+                FILE *fp = fopen("failover_stats.csv", "a");
+                fprintf(fp, "elect ,%lu,%lu,%lu\n",
+                        raft_node.self_id,
+                        elect_time,
+                        elect_time - election_start_time);
+                fclose(fp);
+
                 raft_send_heartbeat();
                 if (raft_node.vote_granted > NUM_NODES)
                     raft_node.vote_granted = NUM_NODES;
                 timeout_stop(&election_timer);
                 if (global_config.test_auto_fail)
                 {
-                    uint64_t cycles = (uint64_t)global_config.test_auto_fail_timeout_ms *
+                    uint64_t delay = global_config.test_auto_fail_timeout_ms + rte_rand() % (global_config.test_auto_fail_timeout_ms +1);
+                    uint64_t cycles = (uint64_t)delay *
                                       rte_get_timer_hz() / 1000;
                     rte_timer_init(&fail_timer);
                     rte_timer_reset(&fail_timer, cycles, SINGLE, rte_lcore_id(),
@@ -221,6 +225,16 @@ static void election_timeout_cb(struct rte_timer *t, void *arg)
         printf("[RAFT] Node %u: Detected leader failure, T_detect = %lu µs, [Detection latency] is %lu µs\n",
                raft_node.self_id, detect_time, detect_time - raft_node.last_heard_µs);
         election_start_time = detect_time;
+        if (raft_node.last_heard_µs != 0)
+        {
+            FILE *fp = fopen("failover_stats.csv", "a");
+            fprintf(fp, "detect,%lu,%lu,%lu\n",
+                    raft_node.self_id,
+                    detect_time,
+                    detect_time - raft_node.last_heard_µs);
+            fclose(fp);
+        }
+
         start_election();
     }
 }
