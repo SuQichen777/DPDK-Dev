@@ -14,9 +14,11 @@
 #include "latency.h"
 
 // current time
-static uint64_t get_time_ms(void) {
-    return rte_get_timer_cycles() * 1000 / rte_get_timer_hz();
+static inline uint64_t monotonic_us(void)
+{
+    return rte_get_timer_cycles() * 1000000ULL / rte_get_timer_hz();
 }
+
 
 static void
 stats_timer_cb(__rte_unused struct rte_timer *tim, void *arg)
@@ -56,8 +58,8 @@ static int lcore_main(void *arg)
         rte_timer_manage();
 
         if (raft_get_state() == STATE_LEADER) {
-            uint64_t now = rte_get_timer_cycles() * 1000 / rte_get_timer_hz();
-            if (now - last_heartbeat >= global_config.heartbeat_interval_ms) {
+            uint64_t now = monotonic_us();
+            if (now - last_heartbeat >= global_config.heartbeat_interval_ms * 1000ULL) {
                 raft_send_heartbeat();
                 last_heartbeat = now;
             }

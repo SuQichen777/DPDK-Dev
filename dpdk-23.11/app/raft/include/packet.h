@@ -16,7 +16,6 @@ struct raft_packet {
     uint8_t  msg_type;   // defined above
     uint32_t term;       // current term
     uint32_t node_id;    // this node's ID
-    uint32_t rtt_ms;     // RTT(optional)
 } __attribute__((packed));
 
 #endif // PACKET_H
