@@ -32,6 +32,12 @@ static void test_auto_fail_enable(int enabled)
     printf("Test auto-fail %s\n", enabled ? "enabled" : "disabled");
 }
 
+static void fail_disable_cb(__rte_unused struct rte_timer *t, void *arg)
+{
+    (void)arg;
+    test_auto_fail_enable(0);
+}
+
 static void fail_enable_cb(__rte_unused struct rte_timer *t, void *arg)
 {
     (void)arg;
@@ -43,11 +49,7 @@ static void fail_enable_cb(__rte_unused struct rte_timer *t, void *arg)
                     fail_disable_cb, NULL);
 }
 
-static void fail_disable_cb(__rte_unused struct rte_timer *t, void *arg)
-{
-    (void)arg;
-    test_auto_fail_enable(0);
-}
+
 
 
 
