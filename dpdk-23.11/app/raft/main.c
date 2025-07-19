@@ -22,7 +22,7 @@ static void
 stats_timer_cb(__rte_unused struct rte_timer *tim, void *arg)
 {
     struct stats_lcore_params *st = arg;
-    print_stats(st);
+    print_stats(st); //print metadata
 }
 
 
@@ -30,15 +30,16 @@ stats_timer_cb(__rte_unused struct rte_timer *tim, void *arg)
 static int lcore_main(void *arg)
 {
     struct stats_lcore_params *st = arg;
-    static struct rte_timer   stats_timer;
+    // static struct rte_timer   stats_timer;
     static struct rte_timer latency_timer;
     static int timer_init_done = 0;
 
     if (!timer_init_done) {
         uint64_t hz = rte_get_timer_hz();
-        rte_timer_init(&stats_timer);
-        rte_timer_reset(&stats_timer, hz * 10, PERIODICAL,
-                        rte_lcore_id(), stats_timer_cb, st);
+        /* stats timer for print metadata*/
+        // rte_timer_init(&stats_timer);
+        // rte_timer_reset(&stats_timer, hz * 10, PERIODICAL,
+        //                 rte_lcore_id(), stats_timer_cb, st);
         rte_timer_init(&latency_timer);
         rte_timer_reset(&latency_timer, hz / 200, PERIODICAL,
                         rte_lcore_id(),
@@ -56,7 +57,7 @@ static int lcore_main(void *arg)
 
         if (raft_get_state() == STATE_LEADER) {
             uint64_t now = rte_get_timer_cycles() * 1000 / rte_get_timer_hz();
-            if (now - last_heartbeat >= 500) {
+            if (now - last_heartbeat >= global_config.heartbeat_interval_ms) {
                 raft_send_heartbeat();
                 last_heartbeat = now;
             }

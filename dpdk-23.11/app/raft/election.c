@@ -17,14 +17,22 @@
 //     raft_state_t current_state;
 //     uint64_t last_heard_ms;
 // } raft_node_t;
-
+static int test_auto_fail_enabled = 0;
+static uint64_t election_start_time = 0;
 static raft_node_t raft_node;
 static struct rte_timer election_timer;
 static void election_timeout_cb(struct rte_timer *t, void *arg);
+
 static inline uint64_t get_wall_time_ms() {
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
     return ts.tv_sec * 1000000ULL + ts.tv_nsec / 1000ULL;
+}
+
+static void test_auto_fail_enable(int enabled)
+{
+    test_auto_fail_enabled = enabled;
+    printf("Test auto-fail %s\n", enabled ? "enabled" : "disabled");
 }
 
 static void broadcast_raft_packet(struct raft_packet *pkt)
@@ -75,7 +83,7 @@ static void start_election()
 void raft_handle_packet(const struct raft_packet *pkt, uint16_t port)
 {
     (void)port;
-
+    if (test_auto_fail_enabled) return; // Suppose this node is down for testing
     uint64_t now_ms = rte_get_timer_cycles() * 1000 / rte_get_timer_hz();
     if (pkt->term > raft_node.current_term)
     {
@@ -121,8 +129,8 @@ void raft_handle_packet(const struct raft_packet *pkt, uint16_t port)
             {
                 raft_node.current_state = STATE_LEADER;
                 uint64_t elect_time = get_wall_time_ms(); 
-                printf("[RAFT] Node %u: Elected as leader, T_elect = %lu µs\n",
-                    raft_node.self_id, elect_time);
+                printf("[RAFT] Node %u: Elected as leader, T_elect = %lu µs\n, [Election latency] is %lu µs\n",
+                       raft_node.self_id, elect_time, elect_time - election_start_time);
                 raft_send_heartbeat(); 
                 if (raft_node.vote_granted > NUM_NODES) raft_node.vote_granted = NUM_NODES;
                 // printf("Node %u elected as leader in term %u\n",
@@ -151,7 +159,7 @@ void raft_handle_packet(const struct raft_packet *pkt, uint16_t port)
 
 void raft_send_heartbeat(void)
 {
-    if (raft_node.current_state != STATE_LEADER)
+    if (raft_node.current_state != STATE_LEADER || test_auto_fail_enabled)
         return;
 
     struct raft_packet pkt = {
@@ -182,8 +190,9 @@ static void election_timeout_cb(struct rte_timer *t, void *arg)
 
     uint64_t detect_time = get_wall_time_ms();
     if (raft_node.current_state != STATE_LEADER){
-        printf("[RAFT] Node %u: Detected leader failure, T_detect = %lu µs\n",
-               raft_node.self_id, detect_time);
+        printf("[RAFT] Node %u: Detected leader failure, T_detect = %lu µs\n, [Detection latency] is %lu µs\n",
+               raft_node.self_id, detect_time, detect_time - raft_node.last_heard_ms);
+        election_start_time = detect_time;
         start_election();
     }
 }

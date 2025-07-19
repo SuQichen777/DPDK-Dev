@@ -1,5 +1,6 @@
 {
   "node_id": 1,
+  "test_auto_fail": true,
   "ip_map": {
     "1": "10.10.1.102",
     "2": "10.10.1.103",
@@ -11,6 +12,9 @@
     "3": "1c:34:da:72:f9:3e"
   },
   "port_id": 0,
-  "election_timeout_min_ms": 1200,
-  "election_timeout_max_ms": 2000
+  "election_timeout_min_ms": 150,
+  "election_timeout_max_ms": 300,
+  "heartbeat_interval_ms": 50,
+  "test_auto_fail_timeout_ms": 1000,
+  "test_auto_fail_duration_ms": 10000
 }

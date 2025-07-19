@@ -5,6 +5,19 @@
 
 raft_config_t global_config;
 
+// typedef struct {
+//     uint32_t node_id;
+//     uint32_t port_id;
+//     char ip_map[MAX_NODES][16];              
+//     struct rte_ether_addr mac_map[MAX_NODES];
+//     uint32_t election_timeout_min_ms;
+//     uint32_t election_timeout_max_ms;
+//     uint32_t heartbeat_interval_ms;
+//     uint32_t test_auto_fail_timeout_ms;      /**< Timeout for auto-fail test */
+//     uint32_t test_auto_fail_duration_ms;     /**< Duration for auto-fail test */
+//     bool test_auto_fail;                /**< Enable auto-fail test */
+// } raft_config_t;
+
 static int parse_mac(const char *str, struct rte_ether_addr *mac) {
     return sscanf(str, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
         &mac->addr_bytes[0], &mac->addr_bytes[1], &mac->addr_bytes[2],
@@ -23,6 +36,10 @@ int load_config(const char *filename) {
     global_config.port_id = json_integer_value(json_object_get(root, "port_id"));
     global_config.election_timeout_min_ms = json_integer_value(json_object_get(root, "election_timeout_min_ms"));
     global_config.election_timeout_max_ms = json_integer_value(json_object_get(root, "election_timeout_max_ms"));
+    global_config.heartbeat_interval_ms = json_integer_value(json_object_get(root, "heartbeat_interval_ms"));
+    global_config.test_auto_fail_timeout_ms = json_integer_value(json_object_get(root, "test_auto_fail_timeout_ms"));
+    global_config.test_auto_fail_duration_ms = json_integer_value(json_object_get(root, "test_auto_fail_duration_ms"));
+    global_config.test_auto_fail = json_is_true(json_object_get(root, "test_auto_fail"));
 
     json_t *ip_map = json_object_get(root, "ip_map");
     json_t *mac_map = json_object_get(root, "mac_map");

@@ -3,7 +3,7 @@ import time
 import os
 from datetime import datetime
 
-LEADER_LOGICAL_NAME = "node6"
+LEADER_LOGICAL_NAME = "node4"
 NODE_HOSTS = {
     "node0": "c1gpu010.clemson.cloudlab.us",
     "node1": "c1gpu022.clemson.cloudlab.us",
@@ -23,7 +23,6 @@ def get_wall_time_us():
 
 
 def ensure_ssh_agent_socket():
-    """Ensure SSH_AUTH_SOCK is present in subprocess env."""
     if "SSH_AUTH_SOCK" not in os.environ or not os.environ["SSH_AUTH_SOCK"]:
         agent_sock = os.popen("echo $SSH_AUTH_SOCK").read().strip()
         if agent_sock:
