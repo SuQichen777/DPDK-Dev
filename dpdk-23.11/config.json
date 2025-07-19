@@ -1,5 +1,6 @@
 {
   "node_id": 1,
+  "test_auto_fail": true,
   "ip_map": {
     "1": "10.10.1.102",
     "2": "10.10.1.103",
@@ -19,16 +20,9 @@
     "7": "1c:34:da:72:e4:e6"
   },
   "port_id": 0,
-  "election_timeout_min_ms": 1500,
-  "election_timeout_max_ms": 3000,
-  "failureLeader": false,
-  "maxHeartbeats": 30,
-  "delayLowerBound": 10,
-  "delayUpperBound": 250,
-  "useSimulatedLinks": false,
-  "linkLossRate": 0,
-  "checkFalsePositiveRate": true,
-  "confidenceLevel": 0.99,
-  "heartbeatIntervalMargin": 85
-
+  "election_timeout_min_ms": 150,
+  "election_timeout_max_ms": 300,
+  "heartbeat_interval_ms": 50,
+  "test_auto_fail_timeout_ms": 1000,
+  "test_auto_fail_duration_ms": 10000
 }

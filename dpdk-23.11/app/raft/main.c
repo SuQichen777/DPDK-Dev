@@ -19,13 +19,13 @@ static inline uint64_t monotonic_us(void)
     return rte_get_timer_cycles() * 1000000ULL / rte_get_timer_hz();
 }
 
-
-static void
-stats_timer_cb(__rte_unused struct rte_timer *tim, void *arg)
-{
-    struct stats_lcore_params *st = arg;
-    print_stats(st); //print metadata
-}
+/* Time callback for metadata*/
+// static void
+// stats_timer_cb(__rte_unused struct rte_timer *tim, void *arg)
+// {
+//     struct stats_lcore_params *st = arg;
+//     print_stats(st); //print metadata
+// }
 
 
 // DPDK work thread main function
