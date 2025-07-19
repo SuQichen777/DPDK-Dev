@@ -32,6 +32,60 @@ sudo apt install libjansson-dev pkg-config libssl-dev libpcap-dev zlib1g-dev lib
 
 Please make sure you have `config.json` where you run the Raft application. There is already one under `dpdk-23.11`, so you can cd to this path, change corresponding values in the `config.json` file, and run the Raft application using `sudo ./build/app/dpdk-raft -l 0` (lcore used can be changed). 
 
+
+### CloudLab r7525 setup
+If you are running this on CloudLab r7525, please run the following commands to set up the environment. It is based on the [BlueField-2 Quickstart Guide for Clemson R7525s](https://groups.google.com/g/cloudlab-users/c/Xk7F46PpxJo/m/swWhh3LpAwAJ).
+1. Install the Mellanox rshim driver
+```bash
+sudo apt update
+sudo apt install libfuse2
+cd /tmp
+wget https://content.mellanox.com/BlueField/RSHIM/rshim_2.0.6-3.ge329c69_amd64.deb
+sudo dpkg -i rshim_2.0.6-3.ge329c69_amd64.deb
+```
+
+2. Then check whether the rshim service is running:
+```bash
+sudo systemctl status rshim
+```
+
+3. If not running, restart the rshim process
+```bash
+sudo systemctl restart rshim
+```
+
+4. Paste the following line into the text file "/tmp/bf.cfg"
+```
+ubuntu_PASSWORD='$1$fkQE6cZQ$KlSSiH4HDNTui53W/1hA40'
+```
+
+4. Download the bfb image from mellanox
+```bash
+wget https://content.mellanox.com/BlueField/BFBs/Ubuntu20.04/DOCA_v1.2.1_BlueField_OS_Ubuntu_20.04-5.4.0-1023-bluefield-5.5-2.1.7.0-3.8.5.12027-1.signed-aarch64.bfb
+```
+
+5. Install the bfb image to the BF-2 adapter
+```bash
+sudo bfb-install --bfb /tmp/DOCA_v1.2.1_BlueField_OS_Ubuntu_20.04-5.4.0-1023-bluefield-5.5-2.1.7.0-3.8.5.12027-1.signed-aarch64.bfb --config /tmp/bf.cfg --rshim rshim0
+```
+
+6. Reboot the host
+```bash
+sudo reboot
+```
+
+7. To access the BlueField-2 adapter, first set the IP of the tmfifo_net0 interface
+```bash
+sudo ifconfig tmfifo_net0 192.168.100.1 netmask 255.255.255.0
+```
+
+
+8. SSH to the bluefield-2 adapter
+```bash
+ssh ubu...@192.168.100.2
+```
+Password: Ubuntu1!
+
 #### Build DPDK
 ```bash
 meson setup build

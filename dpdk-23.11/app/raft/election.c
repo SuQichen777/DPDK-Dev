@@ -149,7 +149,7 @@ void raft_handle_packet(const struct raft_packet *pkt, uint16_t port)
                 printf("[RAFT] Node %u: Elected as leader, T_elect = %lu µs, [Election latency] is %lu µs\n",
                        raft_node.self_id, elect_time, elect_time - election_start_time);
                 FILE *fp = fopen("failover_stats.csv", "a");
-                fprintf(fp, "elect ,%lu,%lu,%lu\n",
+                fprintf(fp, "elect,%lu,%lu,%lu\n",
                         raft_node.self_id,
                         elect_time,
                         elect_time - election_start_time);
