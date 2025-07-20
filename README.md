@@ -82,9 +82,31 @@ sudo ifconfig tmfifo_net0 192.168.100.1 netmask 255.255.255.0
 
 8. SSH to the bluefield-2 adapter
 ```bash
-ssh ubu...@192.168.100.2
+ssh ubuntu@192.168.100.2
 ```
 Password: Ubuntu1!
+
+9. To make sure the BlueField-2 can access the internet, you can run the following command:
+
+On the Host:
+```bash
+sudo sysctl -w net.ipv4.ip_forward=1
+sudo iptables -t nat -A POSTROUTING -o eno1 -j MASQUERADE
+sudo iptables -A FORWARD -i enp129s0f0np0 -s 10.10.1.0/24 -j ACCEPT
+sudo iptables -A FORWARD -o enp129s0f0np0 -d 10.10.1.0/24 -j ACCEPT
+```
+You can change `eno1` and `enp129s0f0np0` to your own network interface name.
+
+On the BlueField-2:
+```bash
+sudo ip addr add 10.10.1.2/24 dev p0
+sudo ip link set p0 up
+```
+Run the following if needed:
+```bash
+sudo ip route del default
+sudo ip route add default via 10.10.1.1 dev p0
+```
 
 #### Build DPDK
 ```bash

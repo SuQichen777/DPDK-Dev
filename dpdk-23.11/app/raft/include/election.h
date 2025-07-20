@@ -22,7 +22,7 @@ typedef struct {
     uint32_t voted_for;
     uint32_t vote_granted;
     raft_state_t current_state;
-    uint64_t last_heard_µs;
+    uint64_t last_heard_us;
 } raft_node_t;
 
 

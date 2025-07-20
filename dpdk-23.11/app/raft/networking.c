@@ -11,6 +11,8 @@
 #include <rte_timer.h>
 #include <rte_errno.h>
 #include <arpa/inet.h>
+#include <math.h>
+
 
 #define MBUF_POOL_SIZE 4096
 #define BURST_SIZE 32
