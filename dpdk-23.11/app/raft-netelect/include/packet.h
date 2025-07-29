@@ -13,6 +13,23 @@
 #define MSG_HEARTBEAT      3
 #define MSG_PS_BROADCAST   4
 
+#define MSG_PING_RTT 0x10
+#define MSG_PONG_RTT 0x11
+
+struct rtt_ping_packet {
+    uint8_t msg_type;
+    uint32_t src_id;
+    uint64_t send_ts;
+    uint64_t tsc_hz;
+} __attribute__((packed));
+
+struct rtt_pong_packet {
+    uint8_t msg_type;
+    uint32_t dst_id;
+    uint64_t echoed_ts;
+    uint64_t tsc_hz;
+} __attribute__((packed));
+
 struct raft_packet {
     uint8_t  msg_type;   // defined above
     uint32_t term;       // current term

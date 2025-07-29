@@ -86,7 +86,7 @@ int main(int argc, char **argv) {
     raft_init(global_config.node_id);
     struct app_config_params app = { .port_id = global_config.port_id };
     // struct stats_lcore_params st = { .app_params = &app };
-    print_stats(&st);
+    // print_stats(&st);
     
     printf("Node %u starting...\n", raft_get_node_id());
     

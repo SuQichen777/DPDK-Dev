@@ -36,6 +36,27 @@ typedef struct
     double best_owd;
 } sync_t;
 static sync_t sync_tab[NUM_NODES + 1] = {0};
+
+static void send_ping_packet(uint32_t peer_id) {
+    struct rtt_ping_packet pkt;
+    pkt.msg_type = MSG_PING_RTT;
+    pkt.src_id = raft_get_node_id();
+    pkt.send_ts = rte_get_timer_cycles();
+    pkt.tsc_hz = rte_get_timer_hz();
+    
+    send_raw_packet((void*)&pkt, sizeof(pkt), peer_id);
+}
+
+static void send_pong_packet(uint32_t dst_id, uint64_t echoed_ts, uint64_t tsc_hz) {
+    struct rtt_pong_packet pkt;
+    pkt.msg_type = MSG_PONG_RTT;
+    pkt.dst_id = dst_id;
+    pkt.echoed_ts = echoed_ts;
+    pkt.tsc_hz = tsc_hz;
+
+    send_raw_packet((void*)&pkt, sizeof(pkt), dst_id);
+}
+
 void net_init(void)
 {
     // (void)id;
@@ -263,8 +284,52 @@ void process_packets(void)
             rte_pktmbuf_free(rx_bufs[i]);
             continue;
         }
+
+        if (mtype == MSG_PING_RTT)
+        {
+            struct rtt_ping_packet *ping_pkt = (struct rtt_ping_packet *)payload;
+            uint32_t src_id = ping_pkt->src_id;
+            uint64_t send_ts = ping_pkt->send_ts;
+            uint64_t tsc_hz = ping_pkt->tsc_hz;
+
+            if (src_id > NUM_NODES || src_id == 0)
+            {
+                rte_pktmbuf_free(rx_bufs[i]);
+                continue;
+            }
+
+            // send pong packet back
+            send_pong_packet(src_id, send_ts, tsc_hz);
+            rte_pktmbuf_free(rx_bufs[i]);
+            continue;
+        }
+
+        if (mtype == MSG_PONG_RTT)
+        {
+            struct rtt_pong_packet *pong_pkt = (struct rtt_pong_packet *)payload;
+            uint32_t dst_id = pong_pkt->dst_id;
+            uint64_t echoed_ts = pong_pkt->echoed_ts;
+            uint64_t tsc_hz = pong_pkt->tsc_hz;
+
+            if (dst_id > NUM_NODES || dst_id == 0)
+            {
+                rte_pktmbuf_free(rx_bufs[i]);
+                continue;
+            }
+
+            // update latency info
+            uint64_t now = rte_get_tsc_cycles();
+            uint64_t rtt_cycles = now - echoed_ts;
+            double rtt_us = (double)rtt_cycles * 1000000.0 / (double)tsc_hz;
+            printf("Node %u ⟵ RTT from %u | echoed=%" PRIu64
+                   " now=%" PRIu64 " | rtt=%.3f us\n",
+                   raft_get_node_id(), dst_id, echoed_ts, now, rtt_us);
+            rte_pktmbuf_free(rx_bufs[i]);
+            break;
+        }
         struct raft_packet *raft_pkt = (struct raft_packet *)(udp_hdr + 1);
         raft_handle_packet(raft_pkt, 0);
         rte_pktmbuf_free(rx_bufs[i]);
     }
 }
+
