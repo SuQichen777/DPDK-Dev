@@ -44,7 +44,7 @@ static void send_ping_packet(uint32_t peer_id) {
     pkt.send_ts = rte_get_timer_cycles();
     pkt.tsc_hz = rte_get_timer_hz();
     
-    send_raw_packet((void*)&pkt, sizeof(pkt), peer_id);
+    // send_raw_packet((void*)&pkt, sizeof(pkt), peer_id);
 }
 
 static void send_pong_packet(uint32_t dst_id, uint64_t echoed_ts, uint64_t tsc_hz) {
@@ -54,7 +54,7 @@ static void send_pong_packet(uint32_t dst_id, uint64_t echoed_ts, uint64_t tsc_h
     pkt.echoed_ts = echoed_ts;
     pkt.tsc_hz = tsc_hz;
 
-    send_raw_packet((void*)&pkt, sizeof(pkt), dst_id);
+    // send_raw_packet((void*)&pkt, sizeof(pkt), dst_id);
 }
 
 void net_init(void)
