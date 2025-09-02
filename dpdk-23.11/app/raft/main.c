@@ -11,15 +11,14 @@
 #include "packet.h"
 #include "config.h"
 #include "metadata.h"
-#include "latency.h"
 
-// current time
+// get current time
 static inline uint64_t monotonic_us(void)
 {
     return rte_get_timer_cycles() * 1000000ULL / rte_get_timer_hz();
 }
 
-/* Time callback for metadata*/
+/* Time callback for metadata. */
 // static void
 // stats_timer_cb(__rte_unused struct rte_timer *tim, void *arg)
 // {
@@ -34,19 +33,21 @@ static int lcore_main(void *arg)
     // struct stats_lcore_params *st = arg;
     // static struct rte_timer   stats_timer;
     static struct rte_timer latency_timer;
+
+    /*
+    Initialize Timer
+    1. Print metadata
+    !!! Uncomment Callback Functions First
+    */
+
     static int timer_init_done = 0;
 
     if (!timer_init_done) {
-        uint64_t hz = rte_get_timer_hz();
-        /* stats timer for print metadata*/
-        // rte_timer_init(&stats_timer);
-        // rte_timer_reset(&stats_timer, hz * 10, PERIODICAL,
-        //                 rte_lcore_id(), stats_timer_cb, st);
-        rte_timer_init(&latency_timer);
-        rte_timer_reset(&latency_timer, hz / 200, PERIODICAL,
-                        rte_lcore_id(),
-                        (rte_timer_cb_t)latency_poll_once,
-                        (void *)(uintptr_t)global_config.port_id);
+    //     uint64_t hz = rte_get_timer_hz();
+    //     /* stats timer for print metadata*/
+    //     // rte_timer_init(&stats_timer);
+    //     // rte_timer_reset(&stats_timer, hz * 10, PERIODICAL,
+    //     //                 rte_lcore_id(), stats_timer_cb, st);
         timer_init_done = 1;
     }
 

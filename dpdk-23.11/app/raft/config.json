@@ -1,6 +1,7 @@
 {
   "node_id": 1,
   "test_auto_fail": true,
+  "node_num": 7,
   "ip_map": {
     "1": "10.10.1.102",
     "2": "10.10.1.103",

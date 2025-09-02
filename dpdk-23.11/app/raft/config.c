@@ -24,6 +24,7 @@ static int parse_mac(const char *str, struct rte_ether_addr *mac) {
         &mac->addr_bytes[3], &mac->addr_bytes[4], &mac->addr_bytes[5]) == 6;
 }
 
+/*make global.config available*/
 int load_config(const char *filename) {
     json_error_t error;
     json_t *root = json_load_file(filename, 0, &error);
@@ -31,7 +32,7 @@ int load_config(const char *filename) {
         fprintf(stderr, "JSON parse error: %s\n", error.text);
         return -1;
     }
-
+    global_config.node_num = json_integer_value(json_object_get(root, "node_num"));
     global_config.node_id = json_integer_value(json_object_get(root, "node_id"));
     global_config.port_id = json_integer_value(json_object_get(root, "port_id"));
     global_config.election_timeout_min_ms = json_integer_value(json_object_get(root, "election_timeout_min_ms"));
@@ -49,7 +50,7 @@ int load_config(const char *filename) {
         snprintf(key, sizeof(key), "%d", i);
         json_t *ip = json_object_get(ip_map, key);
         json_t *mac = json_object_get(mac_map, key);
-        if (!ip || !mac) continue;
+        if (!ip || !mac) continue; // skip null
 
         strncpy(global_config.ip_map[i], json_string_value(ip), 16);
         parse_mac(json_string_value(mac), &global_config.mac_map[i]);

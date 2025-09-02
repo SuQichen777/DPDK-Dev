@@ -2,7 +2,6 @@
 #include "networking.h"
 #include "election.h"
 #include "config.h"
-#include "latency.h"
 #include <stdlib.h>
 #include <rte_ethdev.h>
 #include <rte_ether.h>
@@ -13,29 +12,18 @@
 #include <arpa/inet.h>
 #include <math.h>
 
-
 #define MBUF_POOL_SIZE 4096
 #define BURST_SIZE 32
 
 static struct rte_mempool *mbuf_pool;
-// static uint16_t port_id;
-// static uint32_t self_id;
 static const struct rte_eth_conf port_conf_default = {
     .rxmode = {.mtu = 1500},
     // .txmode = { .offloads = RTE_ETH_TX_OFFLOAD_MBUF_FAST_FREE }
-    .txmode = {.offloads = 0}};
-
-// TODO: Simplified MAC address mapping for nodes
-// static struct rte_ether_addr node_mac_map[NUM_NODES + 1] = {
-//     [1] = {.addr_bytes = {0x00, 0x00, 0x00, 0x00, 0x01, 0x01}},
-//     [2] = {.addr_bytes = {0x00, 0x00, 0x00, 0x00, 0x02, 0x02}},
-//     [3] = {.addr_bytes = {0x00, 0x00, 0x00, 0x00, 0x03, 0x03}}
-// };
+    .txmode = {.offloads = 0}
+};
 
 void net_init(void)
 {
-    // (void)id;
-    // self_id = id;
     // pool initialization
     mbuf_pool = rte_pktmbuf_pool_create("RAFT_MBUF_POOL", MBUF_POOL_SIZE,
                                         0, 0, RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
@@ -62,18 +50,18 @@ void net_init(void)
     ret = rte_eth_dev_start(global_config.port_id);
     if (ret < 0)
         rte_exit(EXIT_FAILURE, "dev_start err=%d\n", ret);
-    if (latency_init_flows(global_config.port_id,
-                       global_config.node_id) < 0)
-        rte_exit(EXIT_FAILURE, "Latency flow init failed\n");
     struct rte_ether_addr actual_mac;
     ret = rte_eth_macaddr_get(global_config.port_id, &actual_mac);
-    if (ret != 0) {
+    if (ret != 0)
+    {
         printf("Failed to get MAC address for port %u: %s\n", global_config.port_id, rte_strerror(rte_errno));
-    } else {
+    }
+    else
+    {
         printf("Actual MAC address for port %u: %02x:%02x:%02x:%02x:%02x:%02x\n",
-            global_config.port_id,
-            actual_mac.addr_bytes[0], actual_mac.addr_bytes[1], actual_mac.addr_bytes[2],
-            actual_mac.addr_bytes[3], actual_mac.addr_bytes[4], actual_mac.addr_bytes[5]);
+               global_config.port_id,
+               actual_mac.addr_bytes[0], actual_mac.addr_bytes[1], actual_mac.addr_bytes[2],
+               actual_mac.addr_bytes[3], actual_mac.addr_bytes[4], actual_mac.addr_bytes[5]);
     }
 }
 

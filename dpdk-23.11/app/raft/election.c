@@ -58,7 +58,7 @@ static inline uint64_t monotonic_us(void)
 }
 static void broadcast_raft_packet(struct raft_packet *pkt)
 {
-    for (uint32_t peer = 1; peer <= NUM_NODES; peer++)
+    for (uint32_t peer = 1; peer <= global_config.node_num; peer++)
     {
         if (peer == raft_node.self_id)
             continue;
@@ -141,8 +141,8 @@ void raft_handle_packet(const struct raft_packet *pkt, uint16_t port)
         {
             raft_node.vote_granted++;
             printf("Node %u received vote from %u (total: %u/%u)\n",
-                   raft_node.self_id, pkt->node_id, raft_node.vote_granted, NUM_NODES);
-            if (raft_node.vote_granted > NUM_NODES / 2)
+                   raft_node.self_id, pkt->node_id, raft_node.vote_granted, global_config.node_num);
+            if (raft_node.vote_granted > global_config.node_num / 2)
             {
                 raft_node.current_state = STATE_LEADER;
                 uint64_t elect_time = monotonic_us();
@@ -156,8 +156,8 @@ void raft_handle_packet(const struct raft_packet *pkt, uint16_t port)
                 fclose(fp);
 
                 raft_send_heartbeat();
-                if (raft_node.vote_granted > NUM_NODES)
-                    raft_node.vote_granted = NUM_NODES;
+                if (raft_node.vote_granted > global_config.node_num)
+                    raft_node.vote_granted = global_config.node_num;
                 timeout_stop(&election_timer);
                 if (global_config.test_auto_fail)
                 {
