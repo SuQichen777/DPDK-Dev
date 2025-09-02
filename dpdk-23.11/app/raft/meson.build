@@ -13,7 +13,6 @@ sources = files(
         'networking.c',
         'timeout.c',
         'metadata.c',
-        'latency.c',
 )
 
 deps += [
