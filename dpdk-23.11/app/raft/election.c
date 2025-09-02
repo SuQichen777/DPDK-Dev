@@ -78,7 +78,7 @@ void raft_init(uint32_t id)
     timeout_init(global_config.election_timeout_min_ms, global_config.election_timeout_max_ms);
     timeout_start_election(&election_timer, election_timeout_cb, NULL);
 }
-static void start_election()
+static void start_election(void)
 {
 
     raft_node.current_state = STATE_CANDIDATE;

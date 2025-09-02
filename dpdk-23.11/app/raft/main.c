@@ -28,11 +28,12 @@ static inline uint64_t monotonic_us(void)
 
 
 // DPDK work thread main function
-static int lcore_main(void *arg)
+static int lcore_main(__rte_unused void *arg)
 {
     // struct stats_lcore_params *st = arg;
     // static struct rte_timer   stats_timer;
-    static struct rte_timer latency_timer;
+    static struct rte_timer;
+    // static struct latency_timer;
 
     /*
     Initialize Timer
