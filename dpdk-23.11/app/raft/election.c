@@ -56,6 +56,7 @@ static inline uint64_t monotonic_us(void)
 {
     return rte_get_timer_cycles() * 1000000ULL / rte_get_timer_hz();
 }
+/* Implement Raft Packet Broadcast Function*/
 static void broadcast_raft_packet(struct raft_packet *pkt)
 {
     for (uint32_t peer = 1; peer <= global_config.node_num; peer++)

@@ -1,5 +1,6 @@
 ## Initial Setup
 After cloning this repository, please do the following to make sure everything works. If the steps below are not permitted, please try `chmod +x` on the scripts.
+
 ### DPDK Build
 I used meson and ninja to build DPDK, so please make sure you have installed them. If you are also running it on CloudLab, you may need to install some packages by running the following command:
 
@@ -30,11 +31,11 @@ sudo apt update
 sudo apt install libjansson-dev pkg-config libssl-dev libpcap-dev zlib1g-dev libarchive-dev libbsd-dev ibverbs-providers rdma-core librdmacm-dev libibverbs-dev
 ```
 
-Please make sure you have `config.json` where you run the Raft application. There is already one under `dpdk-23.11`, so you can cd to this path, change corresponding values in the `config.json` file, and run the Raft application using `sudo ./build/app/dpdk-raft -l 0` (lcore used can be changed). 
+Please make sure you have `config.json` where you run the Raft application. There is already one under `dpdk-23.11`, so you can cd to this path, change corresponding values in the `config.json` file, and run the Raft application using `sudo ./build/app/dpdk-raft -l 0` (lcore used can be changed). More specific information about Raft app could be found [under the raft directory](https://github.com/SuQichen777/DPDK-Dev/blob/master/dpdk-23.11/app/raft/RAFT.md).
 
 
 ### CloudLab r7525 setup
-If you are running this on CloudLab r7525, please run the following commands to set up the environment. It is based on the [BlueField-2 Quickstart Guide for Clemson R7525s](https://groups.google.com/g/cloudlab-users/c/Xk7F46PpxJo/m/swWhh3LpAwAJ).
+If you are configuring this repo on CloudLab r7525 using its SmartNIC, please run the following commands to set up the environment. It is based on the [BlueField-2 Quickstart Guide for Clemson R7525s](https://groups.google.com/g/cloudlab-users/c/Xk7F46PpxJo/m/swWhh3LpAwAJ). Please make sure you specify 100Gbs link speed when setting up the experiment.
 1. Install the Mellanox rshim driver
 ```bash
 sudo apt update
@@ -104,17 +105,17 @@ sudo ip link set p0 up
 ```
 Run the following if needed:
 ```bash
-sudo ip route del default
-sudo ip route add default via 10.10.1.1 dev p0
+echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf
+echo "nameserver 1.1.1.1" | sudo tee -a /etc/resolv.conf
 ```
 
 #### Build DPDK
+Please make sure you are under `dpdk-23.11` before running the following commands.
 ```bash
 meson setup build
-meson configure build -Dexamples=all # You can also specify which examples to build
 ninja -C build
 ```
-If your own machine has other packages not installed, please install them as meson will tell you.
+Examples are not built by default. You can run `meson configure build -Dexamples=all` or specify which examples to build before using `ninja`. Moreover, if your own machine has other packages not installed, please install them as meson will tell you.
 
 ### Scripts
 First go to the `script` directory and check `bind-NIC.sh`:
@@ -179,4 +180,4 @@ Then please add the example name to the `dpdk-23.11/examples/meson.build` file.
 
 After that, if you did not have `meson configure build -Dexamples=all` before, please use `meson configure build -Dexamples+=my_app` to add your application to the build. Then you can just run `ninja -C build` to build your application. Then you can run your application in the `dpdk-23.11/build/examples` directory.
 
-If you would like to write under other directories, please make sure you have included the correct path in the `meson.build` file in the corresponding directory and make the same operation as above to add your application to the build.
+If you would like to write under other directories, please make sure you have included the correct path in the `meson.build` file in the corresponding directory and make the same operation as above to add your application to the build. My raft app is written under the `app` folder for your referrence as well.

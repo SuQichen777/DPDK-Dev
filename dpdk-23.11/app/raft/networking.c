@@ -152,7 +152,7 @@ void process_packets(void)
         }
 
         struct raft_packet *raft_pkt = (struct raft_packet *)(udp_hdr + 1);
-        raft_handle_packet(raft_pkt, 0);
+        raft_handle_packet(raft_pkt, 0); // election.c
         rte_pktmbuf_free(rx_bufs[i]);
     }
 }
