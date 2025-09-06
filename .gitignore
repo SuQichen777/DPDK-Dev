@@ -37,4 +37,3 @@ __pycache__/
 .vscode/
 .idea/
 .DS_Store
-failover_timestamps.csv
