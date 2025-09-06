@@ -38,6 +38,8 @@ apps = [
         'raft',
         'see-metadata',
         'raft-netelect',
+        'pingpong-ping',
+        'pingpong-pong',
 ]
 
 if get_option('tests')
