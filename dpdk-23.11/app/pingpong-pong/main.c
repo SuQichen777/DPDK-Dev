@@ -13,6 +13,8 @@
 #define NUM_MBUFS 8192
 #define MBUF_CACHE_SIZE 250
 #define BURST_SIZE 32
+#define CUSTOM_ETHER_TYPE 0x88B5  // Custom ethernet type for pingpong
+#define MIN_PAYLOAD_SIZE 4        // Minimum expected payload size
 
 static volatile int force_quit = 0;   // when ctrl-c is pressed, this will be set to 1
 static struct rte_mempool *mbuf_pool; // memory pool for mbufs
@@ -20,10 +22,15 @@ static struct rte_mempool *mbuf_pool; // memory pool for mbufs
 static const char *PING = "ping";
 static const char *PONG = "pong";
 
-// Hardcoded destination MAC address for the pong machine (can be overridden by --dest-mac)
+// Hardcoded destination MAC address for the ping machine (can be overridden by --dest-mac)
 static struct rte_ether_addr dest_mac = {
-    // 30:3E:A7:1C:EC:8D
-    .addr_bytes = {0x30, 0x3E, 0xA7, 0x1C, 0xEC, 0x8D}};
+    // 10:70:FD:86:65:7E
+    .addr_bytes = {0x10, 0x70, 0xFD, 0x86, 0x65, 0x7E}};
+
+// Expected source MAC address for validation (ping machine MAC)
+static struct rte_ether_addr expected_src_mac = {
+    // 10:70:FD:86:65:7E
+    .addr_bytes = {0x10, 0x70, 0xFD, 0x86, 0x65, 0x7E}};
 
 static void signal_handler(int signum)
 { // handle signals like ctrl-c
@@ -68,7 +75,7 @@ static void send_string(uint16_t port, const char *msg)
 
     rte_eth_macaddr_get(port, &eth->src_addr);
     rte_ether_addr_copy(&dest_mac, &eth->dst_addr);
-    eth->ether_type = rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV4);
+    eth->ether_type = rte_cpu_to_be_16(CUSTOM_ETHER_TYPE); // use custom ether type
     memcpy(payload, msg, plen);
 
     printf("Sending: %s\n", msg);
@@ -84,15 +91,36 @@ static void process_packets(uint16_t port)
     {
         // rte_pktmbuf_dump(stdout, bufs[i], bufs[i]->pkt_len);// dump packet for debugging
         struct rte_ether_hdr *eth = rte_pktmbuf_mtod(bufs[i], struct rte_ether_hdr *);
-        if (eth->ether_type != rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV4))
+        
+        // Check ethernet type
+        if (eth->ether_type != rte_cpu_to_be_16(CUSTOM_ETHER_TYPE))
         {
-            printf("Received non-IP packet, skipping...\n");
+            printf("Received packet with wrong ether type (0x%04x), skipping...\n", 
+                   rte_be_to_cpu_16(eth->ether_type));
             rte_pktmbuf_free(bufs[i]);
             continue;
         }
+        
+        // Validate source MAC address
+        if (!rte_is_same_ether_addr(&eth->src_addr, &expected_src_mac))
+        {
+            printf("Received packet from unexpected source MAC, skipping...\n");
+            rte_pktmbuf_free(bufs[i]);
+            continue;
+        }
+        
+        // Check packet length
+        uint16_t payload_len = bufs[i]->pkt_len - sizeof(struct rte_ether_hdr);
+        if (payload_len < MIN_PAYLOAD_SIZE)
+        {
+            printf("Received packet too small (%u bytes), skipping...\n", payload_len);
+            rte_pktmbuf_free(bufs[i]);
+            continue;
+        }
+        
         char *payload = (char *)(eth + 1);
-
-        printf("Received: %s\n", payload);
+        printf("Received valid packet: %s (from valid source)\n", payload);
+        
         if (strcmp(payload, PING) == 0)
         {
             send_string(port, PONG);
