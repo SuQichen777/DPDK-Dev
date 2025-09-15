@@ -22,7 +22,9 @@ typedef struct {
     uint32_t voted_for;
     uint32_t vote_granted;
     raft_state_t current_state;
-    uint64_t last_heard_us;
+    uint64_t last_heard_ms;
+    float penalty; // penalty value for PS broadcast
+    uint64_t  last_ps_tx_ts; // last time PS packet was sent
 } raft_node_t;
 
 
@@ -31,6 +33,7 @@ void raft_tick(uint64_t now_ms);
 void raft_handle_packet(const struct raft_packet *pkt, uint16_t port);
 raft_state_t raft_get_state(void);
 void raft_send_heartbeat(void);
+void ps_broadcast_send(void);
 uint32_t raft_get_node_id(void);
 uint32_t raft_get_term(void);
 

@@ -6,8 +6,6 @@
 #include "packet.h"
 #include "timeout.h"
 #include <stdlib.h>
-#include <inttypes.h>
-#include <stdbool.h>
 #include <rte_ethdev.h>
 #include <rte_ether.h>
 #include <rte_mbuf.h>
@@ -15,12 +13,15 @@
 #include <rte_timer.h>
 #include <rte_errno.h>
 #include <arpa/inet.h>
-#include <math.h>
+#include <inttypes.h>
+#include <stdbool.h>
 
 #define MBUF_POOL_SIZE 4096
 #define BURST_SIZE 32
 
 static struct rte_mempool *mbuf_pool;
+// static uint16_t port_id;
+// static uint32_t self_id;
 static const struct rte_eth_conf port_conf_default = {
     .rxmode = {.mtu = 1500},
     // .txmode = { .offloads = RTE_ETH_TX_OFFLOAD_MBUF_FAST_FREE }
@@ -43,7 +44,7 @@ static void send_ping_packet(uint32_t peer_id) {
     pkt.send_ts = rte_get_timer_cycles();
     pkt.tsc_hz = rte_get_timer_hz();
     
-    send_rtt_ping_packet(&pkt, peer_id);
+    // send_raw_packet((void*)&pkt, sizeof(pkt), peer_id);
 }
 
 static void send_pong_packet(uint32_t dst_id, uint64_t echoed_ts, uint64_t tsc_hz) {
@@ -52,112 +53,14 @@ static void send_pong_packet(uint32_t dst_id, uint64_t echoed_ts, uint64_t tsc_h
     pkt.dst_id = dst_id;
     pkt.echoed_ts = echoed_ts;
     pkt.tsc_hz = tsc_hz;
-    
-    send_rtt_pong_packet(&pkt, dst_id);
-}
 
-void send_rtt_ping_packet(struct rtt_ping_packet *pkt, uint16_t dst_id)
-{
-    struct rte_mbuf *mbuf = rte_pktmbuf_alloc(mbuf_pool);
-    if (!mbuf)
-        return;
-
-    char *pkt_data = rte_pktmbuf_append(mbuf, sizeof(struct rtt_ping_packet) +
-                                                  sizeof(struct rte_udp_hdr) +
-                                                  sizeof(struct rte_ipv4_hdr) +
-                                                  sizeof(struct rte_ether_hdr));
-
-    struct rte_ether_hdr *eth_hdr = (struct rte_ether_hdr *)pkt_data;
-    rte_ether_addr_copy(&global_config.mac_map[raft_get_node_id()], &eth_hdr->src_addr);
-    rte_ether_addr_copy(&global_config.mac_map[dst_id], &eth_hdr->dst_addr);
-    eth_hdr->ether_type = rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV4);
-
-    struct rte_ipv4_hdr *ip_hdr = (struct rte_ipv4_hdr *)(eth_hdr + 1);
-    ip_hdr->version_ihl = 0x45;
-    ip_hdr->type_of_service = 0;
-    ip_hdr->total_length = rte_cpu_to_be_16(sizeof(struct rte_ipv4_hdr) +
-                                            sizeof(struct rte_udp_hdr) +
-                                            sizeof(struct rtt_ping_packet));
-    ip_hdr->packet_id = rte_cpu_to_be_16(0);
-    ip_hdr->fragment_offset = rte_cpu_to_be_16(0);
-    ip_hdr->time_to_live = 64;
-    ip_hdr->next_proto_id = IPPROTO_UDP;
-    const char *src_ip = global_config.ip_map[raft_get_node_id()];
-    const char *dst_ip = global_config.ip_map[dst_id];
-    if (!src_ip || !dst_ip)
-    {
-        rte_exit(EXIT_FAILURE, "Missing IP mapping for node %u or %u\n", raft_get_node_id(), dst_id);
-    }
-    ip_hdr->src_addr = inet_addr(src_ip);
-    ip_hdr->dst_addr = inet_addr(dst_ip);
-
-    struct rte_udp_hdr *udp_hdr = (struct rte_udp_hdr *)(ip_hdr + 1);
-    udp_hdr->src_port = rte_cpu_to_be_16(RAFT_PORT);
-    udp_hdr->dst_port = rte_cpu_to_be_16(RAFT_PORT);
-    udp_hdr->dgram_len = rte_cpu_to_be_16(sizeof(struct rtt_ping_packet) +
-                                          sizeof(struct rte_udp_hdr));
-
-    struct rtt_ping_packet *ping_data = (struct rtt_ping_packet *)(udp_hdr + 1);
-    memcpy(ping_data, pkt, sizeof(struct rtt_ping_packet));
-
-    ip_hdr->hdr_checksum = rte_ipv4_cksum(ip_hdr);
-    udp_hdr->dgram_cksum = rte_ipv4_udptcp_cksum(ip_hdr, udp_hdr);
-
-    rte_eth_tx_burst(global_config.port_id, 0, &mbuf, 1);
-}
-
-void send_rtt_pong_packet(struct rtt_pong_packet *pkt, uint16_t dst_id)
-{
-    struct rte_mbuf *mbuf = rte_pktmbuf_alloc(mbuf_pool);
-    if (!mbuf)
-        return;
-
-    char *pkt_data = rte_pktmbuf_append(mbuf, sizeof(struct rtt_pong_packet) +
-                                                  sizeof(struct rte_udp_hdr) +
-                                                  sizeof(struct rte_ipv4_hdr) +
-                                                  sizeof(struct rte_ether_hdr));
-
-    struct rte_ether_hdr *eth_hdr = (struct rte_ether_hdr *)pkt_data;
-    rte_ether_addr_copy(&global_config.mac_map[raft_get_node_id()], &eth_hdr->src_addr);
-    rte_ether_addr_copy(&global_config.mac_map[dst_id], &eth_hdr->dst_addr);
-    eth_hdr->ether_type = rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV4);
-
-    struct rte_ipv4_hdr *ip_hdr = (struct rte_ipv4_hdr *)(eth_hdr + 1);
-    ip_hdr->version_ihl = 0x45;
-    ip_hdr->type_of_service = 0;
-    ip_hdr->total_length = rte_cpu_to_be_16(sizeof(struct rte_ipv4_hdr) +
-                                            sizeof(struct rte_udp_hdr) +
-                                            sizeof(struct rtt_pong_packet));
-    ip_hdr->packet_id = rte_cpu_to_be_16(0);
-    ip_hdr->fragment_offset = rte_cpu_to_be_16(0);
-    ip_hdr->time_to_live = 64;
-    ip_hdr->next_proto_id = IPPROTO_UDP;
-    const char *src_ip = global_config.ip_map[raft_get_node_id()];
-    const char *dst_ip = global_config.ip_map[dst_id];
-    if (!src_ip || !dst_ip)
-    {
-        rte_exit(EXIT_FAILURE, "Missing IP mapping for node %u or %u\n", raft_get_node_id(), dst_id);
-    }
-    ip_hdr->src_addr = inet_addr(src_ip);
-    ip_hdr->dst_addr = inet_addr(dst_ip);
-
-    struct rte_udp_hdr *udp_hdr = (struct rte_udp_hdr *)(ip_hdr + 1);
-    udp_hdr->src_port = rte_cpu_to_be_16(RAFT_PORT);
-    udp_hdr->dst_port = rte_cpu_to_be_16(RAFT_PORT);
-    udp_hdr->dgram_len = rte_cpu_to_be_16(sizeof(struct rtt_pong_packet) +
-                                          sizeof(struct rte_udp_hdr));
-
-    struct rtt_pong_packet *pong_data = (struct rtt_pong_packet *)(udp_hdr + 1);
-    memcpy(pong_data, pkt, sizeof(struct rtt_pong_packet));
-
-    ip_hdr->hdr_checksum = rte_ipv4_cksum(ip_hdr);
-    udp_hdr->dgram_cksum = rte_ipv4_udptcp_cksum(ip_hdr, udp_hdr);
-
-    rte_eth_tx_burst(global_config.port_id, 0, &mbuf, 1);
+    // send_raw_packet((void*)&pkt, sizeof(pkt), dst_id);
 }
 
 void net_init(void)
 {
+    // (void)id;
+    // self_id = id;
     // pool initialization
     mbuf_pool = rte_pktmbuf_pool_create("RAFT_MBUF_POOL", MBUF_POOL_SIZE,
                                         0, 0, RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
@@ -184,11 +87,9 @@ void net_init(void)
     ret = rte_eth_dev_start(global_config.port_id);
     if (ret < 0)
         rte_exit(EXIT_FAILURE, "dev_start err=%d\n", ret);
-    
     if (latency_init_flows(global_config.port_id,
                            global_config.node_id) < 0)
         rte_exit(EXIT_FAILURE, "Latency flow init failed\n");
-
     struct rte_ether_addr actual_mac;
     ret = rte_eth_macaddr_get(global_config.port_id, &actual_mac);
     if (ret != 0)
@@ -268,37 +169,28 @@ void send_ps_packet(struct ps_broadcast_packet *pkt, uint16_t dst_id)
     if (!mbuf)
         return;
 
-    char *pkt_data = rte_pktmbuf_append(mbuf, sizeof(struct ps_broadcast_packet) +
-                                        sizeof(struct rte_ether_hdr) +
+    /* Ethernet + IPv4 + UDP + ps_broadcast_packet */
+    char *data = rte_pktmbuf_append(mbuf,
+                                    sizeof(struct ps_broadcast_packet) +
+                                        sizeof(struct rte_udp_hdr) +
                                         sizeof(struct rte_ipv4_hdr) +
-                                        sizeof(struct rte_udp_hdr));
-    if (!pkt_data) {
-        rte_pktmbuf_free(mbuf);
-        return;
-    }
+                                        sizeof(struct rte_ether_hdr));
 
-    /* Ethernet header */
-    struct rte_ether_hdr *eth = (struct rte_ether_hdr *)pkt_data;
-    rte_ether_addr_copy(&global_config.mac_map[global_config.node_id], &eth->src_addr);
+    struct rte_ether_hdr *eth = (struct rte_ether_hdr *)data;
+    rte_ether_addr_copy(&global_config.mac_map[raft_get_node_id()], &eth->src_addr);
     rte_ether_addr_copy(&global_config.mac_map[dst_id], &eth->dst_addr);
     eth->ether_type = rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV4);
 
-    /* IPv4 header */
     struct rte_ipv4_hdr *ip = (struct rte_ipv4_hdr *)(eth + 1);
     ip->version_ihl = 0x45;
-    ip->type_of_service = 0;
+    ip->time_to_live = 64;
+    ip->next_proto_id = IPPROTO_UDP;
     ip->total_length = rte_cpu_to_be_16(sizeof(struct rte_ipv4_hdr) +
                                         sizeof(struct rte_udp_hdr) +
                                         sizeof(struct ps_broadcast_packet));
-    ip->packet_id = 0;
-    ip->fragment_offset = 0;
-    ip->time_to_live = 64;
-    ip->next_proto_id = IPPROTO_UDP;
-    ip->src_addr = rte_cpu_to_be_32(inet_addr(global_config.ip_map[global_config.node_id]));
-    ip->dst_addr = rte_cpu_to_be_32(inet_addr(global_config.ip_map[dst_id]));
-    ip->hdr_checksum = 0;
+    ip->src_addr = inet_addr(global_config.ip_map[raft_get_node_id()]);
+    ip->dst_addr = inet_addr(global_config.ip_map[dst_id]);
 
-    /* UDP header */
     struct rte_udp_hdr *udp = (struct rte_udp_hdr *)(ip + 1);
     udp->src_port = rte_cpu_to_be_16(RAFT_PORT);
     udp->dst_port = rte_cpu_to_be_16(RAFT_PORT);
@@ -345,90 +237,99 @@ void process_packets(void)
             rte_pktmbuf_free(rx_bufs[i]);
             continue;
         }
-
-        // Check message type
+        // deal with ps broadcast packet
         uint8_t *payload = (uint8_t *)(udp_hdr + 1);
-        uint8_t mtype = payload[0];
-        
-        if (mtype == MSG_PS_BROADCAST) {
-            struct ps_broadcast_packet *ps = (struct ps_broadcast_packet *)payload;
+        uint8_t mtype = *payload;
+
+        if (mtype == MSG_PS_BROADCAST)
+        {
+            struct ps_broadcast_packet *ps = (void *)payload;
             uint32_t peer = ps->node_id;
             uint64_t send_ts = ps->tx_ts;
+            uint32_t rem_hz = ps->remote_hz;
             uint64_t recv_ts = rte_get_tsc_cycles();
-            
-            if (peer > NUM_NODES || peer == 0 || peer == raft_get_node_id()) {
-                rte_pktmbuf_free(rx_bufs[i]);
-                continue;
-            }
-            
+
             sync_t *S = &sync_tab[peer];
-            if (!S->ready) {
-                S->scale = (double)rte_get_tsc_hz() / (double)ps->remote_hz;
+            if (!S->ready)
+            {
+                S->scale = (double)rte_get_tsc_hz() / (double)rem_hz;
+                // S->offset = (double)recv_ts - (double)send_ts * S->scale;
                 double first_owd = fabs((double)recv_ts - (double)send_ts * S->scale);
                 S->best_owd = first_owd;
                 S->offset = (double)recv_ts - (double)send_ts * S->scale - S->best_owd;
                 S->ready = true;
             }
-            
+
             double recv_pred = (double)send_ts * S->scale + S->offset;
+            // double owd_cycles = (double)recv_ts - recv_pred;
+            // if (owd_cycles < 0)
+            // owd_cycles = -owd_cycles;
             double owd_cycles = fabs((double)recv_ts - recv_pred);
-            if (owd_cycles < S->best_owd) {
+            if (owd_cycles < S->best_owd)
+            {
                 S->best_owd = owd_cycles;
                 S->offset = (double)recv_ts - (double)send_ts * S->scale - S->best_owd;
             }
-            
+
             double rtt_ms = S->best_owd * 2000.0 / (double)rte_get_tsc_hz();
+
             sense_update(peer, rtt_ms);
             record_ps_rx(peer, recv_ts);
-            
+
             printf("Node %u ⟵ PS from %u | sent=%" PRIu64
-                   " recv=%" PRIu64 " | rtt=%.3f ms  penalty=%.3f\n",
+                   " recv=%" PRIu64 " | rtt=%.3f ms  penalty=%.3f\n",
                    raft_get_node_id(), peer, send_ts, recv_ts,
                    rtt_ms, ps->penalty);
-            
+
             rte_pktmbuf_free(rx_bufs[i]);
             continue;
         }
-        
-        if (mtype == MSG_PING_RTT) {
+
+        if (mtype == MSG_PING_RTT)
+        {
             struct rtt_ping_packet *ping_pkt = (struct rtt_ping_packet *)payload;
             uint32_t src_id = ping_pkt->src_id;
             uint64_t send_ts = ping_pkt->send_ts;
             uint64_t tsc_hz = ping_pkt->tsc_hz;
-            
-            if (src_id > NUM_NODES || src_id == 0) {
+
+            if (src_id > NUM_NODES || src_id == 0)
+            {
                 rte_pktmbuf_free(rx_bufs[i]);
                 continue;
             }
-            
+
+            // send pong packet back
             send_pong_packet(src_id, send_ts, tsc_hz);
             rte_pktmbuf_free(rx_bufs[i]);
             continue;
         }
-        
-        if (mtype == MSG_PONG_RTT) {
+
+        if (mtype == MSG_PONG_RTT)
+        {
             struct rtt_pong_packet *pong_pkt = (struct rtt_pong_packet *)payload;
             uint32_t dst_id = pong_pkt->dst_id;
             uint64_t echoed_ts = pong_pkt->echoed_ts;
             uint64_t tsc_hz = pong_pkt->tsc_hz;
-            
-            if (dst_id > NUM_NODES || dst_id == 0) {
+
+            if (dst_id > NUM_NODES || dst_id == 0)
+            {
                 rte_pktmbuf_free(rx_bufs[i]);
                 continue;
             }
-            
+
+            // update latency info
             uint64_t now = rte_get_tsc_cycles();
             uint64_t rtt_cycles = now - echoed_ts;
             double rtt_us = (double)rtt_cycles * 1000000.0 / (double)tsc_hz;
             printf("Node %u ⟵ RTT from %u | echoed=%" PRIu64
-                   " now=%" PRIu64 " | rtt=%.3f us\n",
+                   " now=%" PRIu64 " | rtt=%.3f us\n",
                    raft_get_node_id(), dst_id, echoed_ts, now, rtt_us);
             rte_pktmbuf_free(rx_bufs[i]);
-            continue;
+            break;
         }
-        
         struct raft_packet *raft_pkt = (struct raft_packet *)(udp_hdr + 1);
         raft_handle_packet(raft_pkt, 0);
         rte_pktmbuf_free(rx_bufs[i]);
     }
 }
+

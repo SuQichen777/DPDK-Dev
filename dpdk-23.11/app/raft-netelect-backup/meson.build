@@ -13,12 +13,7 @@ sources = files(
         'networking.c',
         'timeout.c',
         'metadata.c',
-)
-
-rtt_test_sources = files(
-        'config.c',
-        'networking.c',
-        'rtt_test.c',
+        'latency.c',
 )
 
 deps += [
@@ -30,11 +25,4 @@ deps += [
         'timer',
 ]
 
-ext_deps += dependency('jansson')
-
-# Build RTT test program
-executable('dpdk-rtt-test',
-        rtt_test_sources,
-        include_directories: includes,
-        dependencies: [dpdk_dep] + ext_deps,
-        install: true)
+ext_deps += dependency('jansson') 
