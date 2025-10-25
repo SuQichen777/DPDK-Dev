@@ -1,5 +1,6 @@
 {
   "node_id": 1,
+  "port_id": 0,
   "test_auto_fail": true,
   "node_num": 3,
   "ip_map": {
@@ -12,15 +13,14 @@
     "7": "10.10.1.108"
   },
   "mac_map": {
-    "1": "02:8f:6a:7e:06:9d",
+    "1": "10:70:fd:86:65:82",
     "2": "08:c0:eb:d1:fc:56",
-    "3": "02:3d:3f:ac:3a:84",
+    "3": "08:c0:eb:d1:fc:62",
     "4": "1c:34:da:72:f0:2e",
     "5": "1c:34:da:72:f5:f6",
     "6": "1c:34:da:72:e4:de",
     "7": "1c:34:da:72:e4:e6"
   },
-  "port_id": 0,
   "election_timeout_min_ms": 150,
   "election_timeout_max_ms": 300,
   "heartbeat_interval_ms": 50,
