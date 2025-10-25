@@ -37,7 +37,6 @@ apps = [
         'test-security-perf',
         'raft',
         'see-metadata',
-        'raft-netelect',
         'pingpong-ping',
         'pingpong-pong',
 ]
