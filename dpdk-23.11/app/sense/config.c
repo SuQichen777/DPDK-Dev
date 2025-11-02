@@ -4,24 +4,27 @@
 #include <rte_ether.h>
 #include <stdio.h>
 
-global_sense_config_t global_sense_config;
+sense_config_t sense_config;
 
-static int parse_mac(const char *str, struct rte_ether_addr *mac)
-{
-    return sscanf(str, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
-                  &mac->addr_bytes[0], &mac->addr_bytes[1], &mac->addr_bytes[2],
-                  &mac->addr_bytes[3], &mac->addr_bytes[4], &mac->addr_bytes[5]) == 6;
+static int parse_mac(const char *mac_str, struct rte_ether_addr *mac) {
+    unsigned int b[6];
+    if (sscanf(mac_str, "%x:%x:%x:%x:%x:%x",
+               &b[0], &b[1], &b[2], &b[3], &b[4], &b[5]) != 6)
+        return -1;
+    for (int i = 0; i < 6; i++)
+        mac->addr_bytes[i] = (uint8_t)b[i];
+    return 0;
 }
 
 int sense_load_config(const char *filename)
 {
-    json_error_t error;
-    json_t *root = json_load_file(filename, 0, &error);
-    if (!root)
-    {
-        fprintf(stderr, "JSON parse error: %s\n", error.text);
+    json_error_t err;
+    json_t *root = json_load_file(filename, 0, &err);
+    if (!root) {
+        fprintf(stderr, "JSON load error: %s (line %d)\n", err.text, err.line);
         return -1;
     }
+
     json_t *node_id = json_object_get(root, "node_id");
     json_t *node_num = json_object_get(root, "node_num");
     json_t *port_id = json_object_get(root, "port_id");
@@ -29,9 +32,9 @@ int sense_load_config(const char *filename)
         json_decref(root);
         return -1;
     }
-    global_sense_config.node_id = (uint32_t)json_integer_value(node_id);
-    global_sense_config.node_num = (uint32_t)json_integer_value(node_num);
-    global_sense_config.port_id = (uint32_t)json_integer_value(port_id);
+    sense_config.node_id = (uint32_t)json_integer_value(node_id);
+    sense_config.node_num = (uint32_t)json_integer_value(node_num);
+    sense_config.port_id = (uint32_t)json_integer_value(port_id);
 
     json_t *ip_map = json_object_get(root, "ip_map");
     json_t *mac_map = json_object_get(root, "mac_map");
@@ -40,7 +43,7 @@ int sense_load_config(const char *filename)
         return -1;
     }
 
-    for (uint32_t i = 1; i <= global_sense_config.node_num; i++) {
+    for (uint32_t i = 1; i <= sense_config.node_num; i++) {
         char key[16];
         snprintf(key, sizeof(key), "%u", i);
         json_t *ip = json_object_get(ip_map, key);
@@ -51,9 +54,9 @@ int sense_load_config(const char *filename)
         }
         const char *ip_str = json_string_value(ip);
         const char *mac_str = json_string_value(mac);
-        strncpy(global_sense_config.ip_map[i], ip_str, sizeof(global_sense_config.ip_map[i])-1);
-        global_sense_config.ip_map[i][sizeof(global_sense_config.ip_map[i]) - 1] = '\0';
-        if (parse_mac(mac_str, &global_sense_config.mac_map[i]) != 0) {
+        strncpy(sense_config.ip_map[i], ip_str, sizeof(sense_config.ip_map[i]) - 1);
+        sense_config.ip_map[i][sizeof(sense_config.ip_map[i]) - 1] = '\0';
+        if (parse_mac(mac_str, &sense_config.mac_map[i]) != 0) {
             json_decref(root);
             return -1;
         }

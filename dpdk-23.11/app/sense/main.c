@@ -5,6 +5,7 @@
 #include <rte_cycles.h>
 #include <signal.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 static volatile int force_quit = 0;
 
@@ -13,8 +14,7 @@ static void signal_handler(int sig) {
     force_quit = 1;
 }
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
 
