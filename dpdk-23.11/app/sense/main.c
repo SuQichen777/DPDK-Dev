@@ -14,7 +14,8 @@ static void signal_handler(int sig) {
     force_quit = 1;
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv)
+{
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
 
@@ -47,7 +48,7 @@ int main(int argc, char **argv) {
             }
             last_ping_cycles = now;
         }
-        rte_delay_us_block(1000); // 1 ms sleep to avoid busy loop
+        rte_delay_us_block(10);
     }
 
     rte_eal_cleanup();

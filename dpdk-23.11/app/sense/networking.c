@@ -88,6 +88,7 @@ void send_pong_packet(uint32_t dst_id, uint64_t echoed_ts, uint64_t tsc_hz)
     struct sense_pong_packet pkt;
     pkt.msg_type = MSG_PONG_RTT;
     pkt.dst_id = dst_id;
+    pkt.src_id = sense_config.node_id;
     pkt.echoed_ts = echoed_ts;
     pkt.tsc_hz = tsc_hz;
     send_raw_packet(&pkt, sizeof(pkt), dst_id);
@@ -171,8 +172,9 @@ void process_rx(void)
             continue;
         } else if (mtype == MSG_PONG_RTT) {
             struct sense_pong_packet *rp = (struct sense_pong_packet *)payload;
+            uint32_t src_id = rp->src_id;
             uint32_t dst_id = rp->dst_id;
-            if (dst_id == 0 || dst_id > sense_config.node_num) {
+            if (dst_id != sense_config.node_id || src_id == 0 || src_id > sense_config.node_num) {
                 rte_pktmbuf_free(m);
                 continue;
             }
@@ -180,7 +182,7 @@ void process_rx(void)
             uint64_t rtt_cycles = now - rp->echoed_ts;
             double rtt_us = (double)rtt_cycles * 1e6 / (double)rp->tsc_hz;
             printf("[SENSE] Node %u ⟵ RTT pong from %u | rtt=%.3f us\n",
-                   sense_config.node_id, dst_id, rtt_us);
+                   sense_config.node_id, src_id, rtt_us);
             rte_pktmbuf_free(m);
             continue;
         }
