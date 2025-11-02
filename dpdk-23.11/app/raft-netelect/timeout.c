@@ -1,13 +1,9 @@
 // timeout.c
 #include "timeout.h"
-#include "packet.h"
-#include "config.h"
 #include <rte_lcore.h>
 #include <rte_cycles.h>
 #include <rte_random.h>
-#include <rte_timer.h>
-#include <stdio.h>
-#include <math.h> 
+#include <stdio.h> 
 
 static uint32_t g_min_ms, g_max_ms;
 
@@ -51,60 +47,4 @@ void timeout_start_election(struct rte_timer *t,
 void timeout_stop(struct rte_timer *t)
 {
     rte_timer_stop(t);
-}
-
-// RTT measurement variables
-static double mu[NUM_NODES + 1] = {0.0};     // mean RTT
-static double sigma[NUM_NODES + 1] = {0.0};  // RTT variance
-static uint64_t last_ps_rx_ts[NUM_NODES + 1] = {0};
-
-// Update RTT statistics using exponential weighted moving average
-void sense_update(uint32_t peer, double sample_ms)
-{
-    if (peer > NUM_NODES || peer == 0) return;
-    
-    const double alpha = global_config.rtt_alpha;  // smoothing factor
-    const double beta = global_config.rtt_beta;    // variance smoothing factor
-    
-    if (mu[peer] == 0.0) {
-        // First sample
-        mu[peer] = sample_ms;
-        sigma[peer] = sample_ms / 2.0;
-    } else {
-        // Update mean and variance
-        double diff = sample_ms - mu[peer];
-        mu[peer] += alpha * diff;
-        sigma[peer] += beta * (fabs(diff) - sigma[peer]);
-    }
-}
-
-// Get the current RTO for a peer
-// RTO = mu + 4 * sigma
-double get_rto(uint32_t peer)
-{
-    return mu[peer] + 4.0 * sigma[peer];
-}
-
-// Compute penalty based on average RTT to all peers
-double compute_penalty(uint32_t self_id)
-{
-    double sum = 0.0;
-    int    cnt = 0;
-
-    for (uint32_t p = 1; p <= NUM_NODES; ++p) {
-        if (p == self_id) continue;        // skip self
-        if (mu[p] > 0.0) {
-            sum += mu[p];
-            cnt++;
-        }
-    }
-    if (cnt == 0) return 0.0;              //no sample no penalty
-    return sum / cnt;                      //TODO: Change to the formula of NetElect
-}
-
-// Record PS packet reception timestamp
-void record_ps_rx(uint32_t peer, uint64_t tsc)
-{
-    if (peer > NUM_NODES || peer == 0) return;
-    last_ps_rx_ts[peer] = tsc;
 }

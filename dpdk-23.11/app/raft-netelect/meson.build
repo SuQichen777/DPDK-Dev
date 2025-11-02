@@ -15,12 +15,6 @@ sources = files(
         'metadata.c',
 )
 
-rtt_test_sources = files(
-        'config.c',
-        'networking.c',
-        'rtt_test.c',
-)
-
 deps += [
         'eal',
         'ethdev',
@@ -30,11 +24,4 @@ deps += [
         'timer',
 ]
 
-ext_deps += dependency('jansson')
-
-# Build RTT test program
-executable('dpdk-rtt-test',
-        rtt_test_sources,
-        include_directories: includes,
-        dependencies: [dpdk_dep] + ext_deps,
-        install: true)
+ext_deps += dependency('jansson') 
