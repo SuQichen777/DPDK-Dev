@@ -11,6 +11,7 @@
 #include <arpa/inet.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #define MBUF_POOL_SIZE 4096
 #define BURST_SIZE 32
