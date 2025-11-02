@@ -39,6 +39,7 @@ apps = [
         'see-metadata',
         'pingpong-ping',
         'pingpong-pong',
+        'sense',
 ]
 
 if get_option('tests')
