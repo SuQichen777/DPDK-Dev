@@ -40,6 +40,9 @@ int main(int argc, char **argv)
 
     uint64_t last_ping_cycles = rte_get_tsc_cycles();
     const uint64_t ping_interval_cycles = rte_get_tsc_hz(); // ~1 second
+    // xstats 每 5 秒抓一次，避免阻塞 RX
+    uint64_t last_xstats_cycles = 0;
+    const uint64_t xstats_interval_cycles = rte_get_tsc_hz() * 5;
 
     while (!force_quit) {
         process_rx();
@@ -53,21 +56,30 @@ int main(int argc, char **argv)
                 send_ping_packet(peer);
             }
 
-            struct sense_unified_snapshot snap;
-            int ret = sense_get_unified_snapshot(200000, sense_config.port_id, &snap);
-            if (ret == 0) {
-                for (uint32_t peer = 1; peer <= sense_config.node_num; peer++) {
-                    double avg = snap.rtt.avg_us[peer];
-                    if (avg >= 0.0)
-                        printf("[SENSE] avg RTT(200000ms) to %u = %.3f us\n", peer, avg);
+            // RTT computed every 200000
+            struct sense_rtt_snapshot rtt_snap;
+            sense_get_rtt_avg_all(200000, &rtt_snap);
+            for (uint32_t peer = 1; peer <= sense_config.node_num; peer++) {
+                double avg = rtt_snap.avg_us[peer];
+                if (avg >= 0.0)
+                    printf("[SENSE] avg RTT(200000ms) to %u = %.3f us\n", peer, avg);
+            }
+
+            // XSTATS enable 5s interval
+            if (now - last_xstats_cycles >= xstats_interval_cycles) {
+                struct sense_xstats_snapshot xsnap;
+                if (sense_metadata_snapshot(sense_config.port_id, &xsnap) == 0) {
+                    for (uint32_t i = 0; i < xsnap.count && i < 5; i++) {
+                        printf("[XSTATS] %s = %lu\n", xsnap.names[i], xsnap.values[i]);
+                    }
                 }
-                for (uint32_t i = 0; i < snap.xstats.count && i < 5; i++) {
-                    printf("[XSTATS] %s = %lu\n", snap.xstats.names[i], snap.xstats.values[i]);
-                }
+                last_xstats_cycles = now;
             }
 
             last_ping_cycles = now;
         }
+
+        rte_pause();
         rte_delay_us_block(10);
     }
 
