@@ -1,6 +1,7 @@
 #include "networking.h"
 #include "config.h"
 #include "packet.h"
+#include "stats.h"
 #include <rte_ethdev.h>
 #include <rte_ether.h>
 #include <rte_mbuf.h>

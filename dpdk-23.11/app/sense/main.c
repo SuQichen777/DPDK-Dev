@@ -1,5 +1,7 @@
 #include "config.h"
 #include "networking.h"
+#include "stats.h"
+#include "api.h"
 #include <rte_eal.h>
 #include <rte_timer.h>
 #include <rte_cycles.h>
