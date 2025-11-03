@@ -27,10 +27,15 @@ static int xstats_worker(__rte_unused void *arg)
     while (!force_quit) {
         uint64_t now = rte_get_tsc_cycles();
         if (now - last >= interval) {
-            struct sense_xstats_snapshot xsnap;
-            if (sense_metadata_snapshot(sense_config.port_id, &xsnap) == 0) {
-                for (uint32_t i = 0; i < xsnap.count && i < 5; i++) {
-                    printf("[XSTATS] %s = %lu\n", xsnap.names[i], xsnap.values[i]);
+            struct sense_unified_snapshot snap;
+            if (sense_get_unified_snapshot_latest(sense_config.port_id, &snap) == 0) {
+                for (uint32_t i = 0; i < snap.xstats.count && i < 5; i++) {
+                    printf("[XSTATS] %s = %lu\n", snap.xstats.names[i], snap.xstats.values[i]);
+                }
+                for (uint32_t peer = 1; peer <= sense_config.node_num; peer++) {
+                    double avg = snap.rtt.avg_us[peer];
+                    if (avg >= 0.0)
+                        printf("[SENSE] snapshot avg RTT to %u = %.3f us\n", peer, avg);
                 }
             }
             last = now;
@@ -56,6 +61,11 @@ int main(int argc, char **argv)
         rte_exit(EXIT_FAILURE, "EAL init failed\n");
 
     rte_timer_subsystem_init();
+
+    // Open API: enable RTT snapshot every 1000ms, window 5000ms
+    if (sense_snapshot_enable(1000, 5000) != 0) {
+        printf("[WARN] RTT snapshot enable failed; fallback to on-demand RTT.\n");
+    }
 
     net_init();
 
