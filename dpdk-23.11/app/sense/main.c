@@ -41,19 +41,31 @@ int main(int argc, char **argv)
     uint64_t last_ping_cycles = rte_get_tsc_cycles();
     const uint64_t ping_interval_cycles = rte_get_tsc_hz(); // ~1 second
 
-    while (!force_quit)
-    {
+    while (!force_quit) {
         process_rx();
 
+        rte_timer_manage();
+
         uint64_t now = rte_get_tsc_cycles();
-        if (now - last_ping_cycles >= ping_interval_cycles)
-        {
-            for (uint32_t peer = 1; peer <= sense_config.node_num; peer++)
-            {
-                if (peer == sense_config.node_id)
-                    continue;
+        if (now - last_ping_cycles >= ping_interval_cycles) {
+            for (uint32_t peer = 1; peer <= sense_config.node_num; peer++) {
+                if (peer == sense_config.node_id) continue;
                 send_ping_packet(peer);
             }
+
+            struct sense_unified_snapshot snap;
+            int ret = sense_get_unified_snapshot_latest(sense_config.port_id, &snap);
+            if (ret == 0) {
+                for (uint32_t peer = 1; peer <= sense_config.node_num; peer++) {
+                    double avg = snap.rtt.avg_us[peer];
+                    if (avg >= 0.0)
+                        printf("[SENSE] latest avg RTT to %u = %.3f us\n", peer, avg);
+                }
+                for (uint32_t i = 0; i < snap.xstats.count && i < 5; i++) {
+                    printf("[XSTATS] %s = %lu\n", snap.xstats.names[i], snap.xstats.values[i]);
+                }
+            }
+
             last_ping_cycles = now;
         }
         rte_delay_us_block(10);
