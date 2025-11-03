@@ -59,7 +59,7 @@ int main(int argc, char **argv)
                 for (uint32_t peer = 1; peer <= sense_config.node_num; peer++) {
                     double avg = snap.rtt.avg_us[peer];
                     if (avg >= 0.0)
-                        printf("[SENSE] avg RTT(10000ms) to %u = %.3f us\n", peer, avg);
+                        printf("[SENSE] avg RTT(200000ms) to %u = %.3f us\n", peer, avg);
                 }
                 for (uint32_t i = 0; i < snap.xstats.count && i < 5; i++) {
                     printf("[XSTATS] %s = %lu\n", snap.xstats.names[i], snap.xstats.values[i]);
