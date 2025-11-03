@@ -5,6 +5,7 @@
 #include <rte_eal.h>
 #include <rte_timer.h>
 #include <rte_cycles.h>
+#include <rte_lcore.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,6 +18,29 @@ static void signal_handler(int sig)
     force_quit = 1;
 }
 
+// Run xstats on a worker lcore to avoid blocking RX/RTT on main lcore
+// xstats worker thread
+static int xstats_worker(__rte_unused void *arg)
+{
+    uint64_t last = 0;
+    const uint64_t interval = rte_get_tsc_hz() * 5; // 5s
+    while (!force_quit) {
+        uint64_t now = rte_get_tsc_cycles();
+        if (now - last >= interval) {
+            struct sense_xstats_snapshot xsnap;
+            if (sense_metadata_snapshot(sense_config.port_id, &xsnap) == 0) {
+                for (uint32_t i = 0; i < xsnap.count && i < 5; i++) {
+                    printf("[XSTATS] %s = %lu\n", xsnap.names[i], xsnap.values[i]);
+                }
+            }
+            last = now;
+        }
+        rte_pause();
+    }
+    return 0;
+}
+
+// main function with xstats worker thread
 int main(int argc, char **argv)
 {
     signal(SIGINT, signal_handler);
@@ -38,11 +62,20 @@ int main(int argc, char **argv)
     printf("[SENSE] Node %u starting on port %u, total nodes=%u\n",
            sense_config.node_id, sense_config.port_id, sense_config.node_num);
 
+    // Launch xstats collection on a worker lcore
+    unsigned worker = RTE_MAX_LCORE;
+    RTE_LCORE_FOREACH_WORKER(worker) { break; }
+    if (worker != RTE_MAX_LCORE) {
+        int rc = rte_eal_remote_launch(xstats_worker, NULL, worker);
+        if (rc != 0) {
+            printf("[WARN] Failed to launch xstats worker (rc=%d); xstats disabled on main lcore.\n", rc);
+        }
+    } else {
+        printf("[WARN] No worker lcore available; xstats disabled to protect RTT.\n");
+    }
+
     uint64_t last_ping_cycles = rte_get_tsc_cycles();
     const uint64_t ping_interval_cycles = rte_get_tsc_hz(); // ~1 second
-    // xstats 每 5 秒抓一次，避免阻塞 RX
-    uint64_t last_xstats_cycles = 0;
-    const uint64_t xstats_interval_cycles = rte_get_tsc_hz() * 5;
 
     while (!force_quit) {
         process_rx();
@@ -56,7 +89,7 @@ int main(int argc, char **argv)
                 send_ping_packet(peer);
             }
 
-            // RTT computed every 200000
+            // RTT average over a long window (200s)
             struct sense_rtt_snapshot rtt_snap;
             sense_get_rtt_avg_all(200000, &rtt_snap);
             for (uint32_t peer = 1; peer <= sense_config.node_num; peer++) {
@@ -65,22 +98,10 @@ int main(int argc, char **argv)
                     printf("[SENSE] avg RTT(200000ms) to %u = %.3f us\n", peer, avg);
             }
 
-            // XSTATS enable 5s interval
-            if (now - last_xstats_cycles >= xstats_interval_cycles) {
-                struct sense_xstats_snapshot xsnap;
-                if (sense_metadata_snapshot(sense_config.port_id, &xsnap) == 0) {
-                    for (uint32_t i = 0; i < xsnap.count && i < 5; i++) {
-                        printf("[XSTATS] %s = %lu\n", xsnap.names[i], xsnap.values[i]);
-                    }
-                }
-                last_xstats_cycles = now;
-            }
-
             last_ping_cycles = now;
         }
 
         rte_pause();
-        rte_delay_us_block(10);
     }
 
     rte_eal_cleanup();
