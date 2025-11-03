@@ -54,12 +54,12 @@ int main(int argc, char **argv)
             }
 
             struct sense_unified_snapshot snap;
-            int ret = sense_get_unified_snapshot_latest(sense_config.port_id, &snap);
+            int ret = sense_get_unified_snapshot(1000, sense_config.port_id, &snap);
             if (ret == 0) {
                 for (uint32_t peer = 1; peer <= sense_config.node_num; peer++) {
                     double avg = snap.rtt.avg_us[peer];
                     if (avg >= 0.0)
-                        printf("[SENSE] latest avg RTT to %u = %.3f us\n", peer, avg);
+                        printf("[SENSE] avg RTT(1000ms) to %u = %.3f us\n", peer, avg);
                 }
                 for (uint32_t i = 0; i < snap.xstats.count && i < 5; i++) {
                     printf("[XSTATS] %s = %lu\n", snap.xstats.names[i], snap.xstats.values[i]);
