@@ -181,6 +181,12 @@ void process_rx(void)
             uint64_t now = rte_get_tsc_cycles();
             uint64_t rtt_cycles = now - rp->echoed_ts;
             double rtt_us = (double)rtt_cycles * 1e6 / (double)rp->tsc_hz;
+
+            // write into a shared table
+            sense_stats_update(src_id, rtt_us);
+            // ring buffer
+            sense_samples_append(src_id, rtt_us);
+
             printf("[SENSE] Node %u ⟵ RTT pong from %u | rtt=%.3f us\n",
                    sense_config.node_id, src_id, rtt_us);
             rte_pktmbuf_free(m);

@@ -10,6 +10,9 @@ sources = files(
         'config.c',
         'networking.c',
         'main.c',
+        'stats.c',
+        'metadata.c',
+        'api.c',
 )
 
 deps += [
