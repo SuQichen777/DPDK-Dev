@@ -2,6 +2,7 @@
 #include "networking.h"
 #include "election.h"
 #include "config.h"
+#include "latency.h"
 #include <stdlib.h>
 #include <rte_ethdev.h>
 #include <rte_ether.h>
@@ -62,6 +63,11 @@ void net_init(void)
                global_config.port_id,
                actual_mac.addr_bytes[0], actual_mac.addr_bytes[1], actual_mac.addr_bytes[2],
                actual_mac.addr_bytes[3], actual_mac.addr_bytes[4], actual_mac.addr_bytes[5]);
+    }
+
+    if (latency_init(global_config.port_id, global_config.node_id) != 0)
+    {
+        printf("[LATENCY] Initialization failed; RTT metrics unavailable\n");
     }
 }
 

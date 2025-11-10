@@ -9,6 +9,7 @@ includes = include_directories('include')
 sources = files(
         'config.c',
         'election.c',
+        'latency.c',
         'measurement.c',
         'main.c',
         'networking.c',
