@@ -11,6 +11,7 @@
 #include "packet.h"
 #include "config.h"
 #include "metadata.h"
+#include "measurement.h"
 
 // get current time
 static inline uint64_t monotonic_us(void)
@@ -95,6 +96,18 @@ int main(int argc, char **argv)
     struct stats_lcore_params st = {.app_params = &app};
     // struct stats_lcore_params st = { .app_params = &app };
     // print_stats(&st);
+
+    struct measurement_config meas_cfg = {
+        .period_ms = 2000,
+        .job = NULL,
+        .job_arg = &st,
+    };
+
+    if (measurement_scheduler_init(&meas_cfg) != 0 ||
+        measurement_scheduler_start() != 0)
+    {
+        rte_exit(EXIT_FAILURE, "Failed to start measurement scheduler\n");
+    }
 
     printf("Node %u starting...\n", raft_get_node_id());
 
