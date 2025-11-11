@@ -136,7 +136,7 @@ load_peers_from_config() {
     awk -v self="$self" '
         /"ip_map"/ {flag=1; next}
         flag && /}/ {flag=0}
-        flag && match($0, /"([^\"]+)"\s*:\s*"([^\"]+)"/, arr) {
+        flag && match($0, /"([^"]+)"\s*:\s*"([^"]+)"/, arr) {
             if (arr[1] != self) {
                 printf "%s,%s\n", arr[1], arr[2];
             }
