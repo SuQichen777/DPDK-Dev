@@ -11,6 +11,7 @@
 #include <rte_errno.h>
 #include <rte_memzone.h>
 #include <rte_cycles.h>
+#include <rte_flow.h>
 #include <arpa/inet.h>
 #include <string.h>
 #include <stdio.h>
@@ -19,8 +20,10 @@
 #define MBUF_POOL_SIZE 4096
 #define BURST_SIZE 32
 #define SENSE_TOTAL_QUEUES 2
+#define RAFT_NET_PORT 9999
 
 static struct rte_mempool *mbuf_pool;
+static struct rte_flow *secondary_flow;
 
 static void publish_mp_info(void)
 {
@@ -169,6 +172,55 @@ void net_init(void)
     }
 
     publish_mp_info();
+
+    struct rte_flow_attr attr = {
+        .ingress = 1,
+    };
+    struct rte_flow_item pattern[4];
+    struct rte_flow_action actions[2];
+    struct rte_flow_item_eth eth_spec;
+    struct rte_flow_item_eth eth_mask;
+    struct rte_flow_item_ipv4 ip_spec;
+    struct rte_flow_item_ipv4 ip_mask;
+    struct rte_flow_item_udp udp_spec;
+    struct rte_flow_item_udp udp_mask;
+    struct rte_flow_action_queue queue = {.index = SENSE_SECONDARY_RXQ};
+    memset(&eth_spec, 0, sizeof(eth_spec));
+    memset(&eth_mask, 0, sizeof(eth_mask));
+    memset(&ip_spec, 0, sizeof(ip_spec));
+    memset(&ip_mask, 0, sizeof(ip_mask));
+    memset(&udp_spec, 0, sizeof(udp_spec));
+    memset(&udp_mask, 0, sizeof(udp_mask));
+    ip_spec.hdr.next_proto_id = IPPROTO_UDP;
+    ip_mask.hdr.next_proto_id = 0xFF;
+    udp_spec.hdr.dst_port = rte_cpu_to_be_16(RAFT_NET_PORT);
+    udp_mask.hdr.dst_port = 0xFFFF;
+    pattern[0] = (struct rte_flow_item){
+        .type = RTE_FLOW_ITEM_TYPE_ETH,
+        .spec = &eth_spec,
+        .mask = &eth_mask};
+    pattern[1] = (struct rte_flow_item){
+        .type = RTE_FLOW_ITEM_TYPE_IPV4,
+        .spec = &ip_spec,
+        .mask = &ip_mask};
+    pattern[2] = (struct rte_flow_item){
+        .type = RTE_FLOW_ITEM_TYPE_UDP,
+        .spec = &udp_spec,
+        .mask = &udp_mask};
+    pattern[3] = (struct rte_flow_item){
+        .type = RTE_FLOW_ITEM_TYPE_END};
+    actions[0] = (struct rte_flow_action){
+        .type = RTE_FLOW_ACTION_TYPE_QUEUE,
+        .conf = &queue};
+    actions[1] = (struct rte_flow_action){
+        .type = RTE_FLOW_ACTION_TYPE_END};
+    struct rte_flow_error error;
+    secondary_flow = rte_flow_create(sense_config.port_id, &attr, pattern, actions, &error);
+    if (secondary_flow == NULL)
+    {
+        printf("[WARN] Failed to create rte_flow for secondary queue: %s (type=%d)\n",
+               error.message ? error.message : "unknown", error.type);
+    }
 }
 
 void process_rx(void)
