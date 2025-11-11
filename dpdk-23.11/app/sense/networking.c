@@ -40,8 +40,7 @@ static void publish_mp_info(void)
     info->primary_txq = SENSE_PRIMARY_TXQ;
     info->secondary_rxq = SENSE_SECONDARY_RXQ;
     info->secondary_txq = SENSE_SECONDARY_TXQ;
-    snprintf(info->mempool_name, sizeof(info->mempool_name), "%s",
-             rte_mempool_get_name(mbuf_pool));
+    snprintf(info->mempool_name, sizeof(info->mempool_name), "%s", mbuf_pool->name);
 }
 static const struct rte_eth_conf port_conf_default = {
     .rxmode = {.mtu = 1500},
