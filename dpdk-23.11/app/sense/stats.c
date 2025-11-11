@@ -22,8 +22,11 @@ int sense_stats_init(uint32_t node_id, uint32_t node_num)
                             sizeof(struct sense_rtt_table),
                             rte_socket_id(),
                             RTE_MEMZONE_2MB | RTE_MEMZONE_SIZE_HINT_ONLY);
-    if (mz == NULL)
-        return -1;
+    if (mz == NULL) {
+        mz = rte_memzone_lookup(SENSE_RTT_MEMZONE);
+        if (mz == NULL)
+            return -1;
+    }
 
     rtt_tbl = (struct sense_rtt_table *)mz->addr;
     memset(rtt_tbl, 0, sizeof(*rtt_tbl));
@@ -37,17 +40,50 @@ int sense_stats_init(uint32_t node_id, uint32_t node_num)
     return 0;
 }
 
+static inline int peer_invalid(uint32_t peer_id)
+{
+    return (peer_id == 0 || peer_id > SENSE_MAX_NODES);
+}
+
+void sense_stats_record_ping(uint32_t peer_id)
+{
+    if (!rtt_tbl || peer_invalid(peer_id))
+        return;
+    struct sense_rtt_entry *entry = &rtt_tbl->entries[peer_id];
+    entry->last_ping_tsc = rte_get_tsc_cycles();
+    entry->ping_sent++;
+    if (entry->ping_sent < entry->pong_recv) {
+        entry->ping_sent = entry->pong_recv;
+    }
+    entry->loss_count = entry->ping_sent - entry->pong_recv;
+}
+
 void sense_stats_update(uint32_t peer_id, double rtt_us)
 {
-    if (!rtt_tbl || peer_id == 0 || peer_id > SENSE_MAX_NODES)
+    if (!rtt_tbl || peer_invalid(peer_id))
         return;
-    rtt_tbl->entries[peer_id].rtt_us = rtt_us;
-    rtt_tbl->entries[peer_id].last_tsc = rte_get_tsc_cycles();
+
+    uint64_t now = rte_get_tsc_cycles();
+    struct sense_rtt_entry *entry = &rtt_tbl->entries[peer_id];
+    entry->last_rtt_us = rtt_us;
+    if (entry->ewma_rtt_us <= 0.0) {
+        entry->ewma_rtt_us = rtt_us;
+    } else {
+        entry->ewma_rtt_us = (SENSE_EWMA_ALPHA * rtt_us) +
+                             ((1.0 - SENSE_EWMA_ALPHA) * entry->ewma_rtt_us);
+    }
+    entry->last_sample_tsc = now;
+    entry->last_seen_tsc = now;
+    entry->pong_recv++;
+    if (entry->pong_recv > entry->ping_sent) {
+        entry->ping_sent = entry->pong_recv;
+    }
+    entry->loss_count = entry->ping_sent - entry->pong_recv;
 }
 
 void sense_samples_append(uint32_t peer_id, double rtt_us)
 {
-    if (peer_id == 0 || peer_id > SENSE_MAX_NODES)
+    if (peer_invalid(peer_id))
         return;
     uint16_t head = ring_head[peer_id];
     sample_ring[peer_id][head].tsc = rte_get_tsc_cycles();

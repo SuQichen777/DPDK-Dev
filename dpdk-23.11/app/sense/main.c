@@ -29,7 +29,7 @@ static int xstats_worker(__rte_unused void *arg)
         if (now - last >= interval) {
             struct sense_unified_snapshot snap;
             if (sense_get_unified_snapshot_latest(sense_config.port_id, &snap) == 0) {
-                for (uint32_t i = 0; i < snap.xstats.count && i < 5; i++) {
+                for (uint32_t i = 0; i < snap.xstats.count; i++) {
                     printf("[XSTATS] %s = %lu\n", snap.xstats.names[i], snap.xstats.values[i]);
                 }
                 for (uint32_t peer = 1; peer <= sense_config.node_num; peer++) {
@@ -61,6 +61,10 @@ int main(int argc, char **argv)
         rte_exit(EXIT_FAILURE, "EAL init failed\n");
 
     rte_timer_subsystem_init();
+
+    if (sense_stats_init(sense_config.node_id, sense_config.node_num) != 0) {
+        rte_exit(EXIT_FAILURE, "Failed to initialize RTT stats table\n");
+    }
 
     // Open API: enable RTT snapshot every 1000ms, window 5000ms
     if (sense_snapshot_enable(1000, 5000) != 0) {

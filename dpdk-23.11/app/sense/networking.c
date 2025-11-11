@@ -81,6 +81,7 @@ void send_ping_packet(uint32_t peer_id)
     pkt.src_id = sense_config.node_id;
     pkt.send_ts = rte_get_tsc_cycles();
     pkt.tsc_hz = rte_get_tsc_hz();
+    sense_stats_record_ping(peer_id);
     send_raw_packet(&pkt, sizeof(pkt), peer_id);
 }
 
