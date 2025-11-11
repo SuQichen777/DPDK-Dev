@@ -199,6 +199,18 @@ If you are using a NIC with Mellanox driver (like DPU), you do not need to bind 
 
 First go to the `script` directory and check `bind-NIC.sh`:
 
+#### Telemetry probe
+
+`script/monitor_probe.sh` relies only on `/proc`, `ping`, `awk`, and sysfs counters to sample CPU %, memory %, peer-to-peer P99 latency, and optional NIC throughput. By default it writes the latest snapshot to `script/data_storage/telemetry.json`, while `telemetry.jsonl` and `telemetry.csv` in the same directory retain history for later plotting. Peer IPs are auto-discovered from `dpdk-23.11/app/raft/config.json`, or you can pass repeated `--peer <id:ip>` overrides. Use `--data-dir` if you prefer a different output location.
+
+Example (collect once, include throughput for `ens3`):
+
+```bash
+./script/monitor_probe.sh --iface ens3 --once
+```
+
+For continuous monitoring, omit `--once` and optionally raise `--interval` (default 10s) to trade accuracy for even lower overhead. Use `--no-csv` or `--no-jsonl` if you only need a specific output format.
+
 ```bash
 DPDK_DIR=
 PCI_DEVICES=
