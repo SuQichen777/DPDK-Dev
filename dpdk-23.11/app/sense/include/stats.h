@@ -1,5 +1,6 @@
 #pragma once
 #include <stdint.h>
+#include "packet.h"
 
 #define SENSE_MAX_NODES   16
 #define SENSE_RTT_MEMZONE "SENSE_RTT_TABLE"
@@ -56,3 +57,6 @@ int sense_snapshot_enable(uint32_t interval_ms, uint32_t window_ms);
 
 // Get the most recent snapshot
 const struct sense_rtt_snapshot* sense_snapshot_get(void);
+
+int sense_stats_build_report(const struct sense_rtt_snapshot *snapshot,
+                             struct sense_stats_report_packet *out);

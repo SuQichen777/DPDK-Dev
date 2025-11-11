@@ -3,6 +3,11 @@
   "port_id": 0,
   "test_auto_fail": true,
   "node_num": 3,
+  "collector": {
+    "ip": "10.214.96.110",
+    "mac": "b4:05:5d:f6:1a:e2",
+    "port": 9998
+  },
   "ip_map": {
     "1": "10.10.1.102",
     "2": "10.10.1.103",

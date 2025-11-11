@@ -11,6 +11,10 @@ typedef struct {
     uint32_t port_id;
     char ip_map[SENSE_MAX_NODES+1][16];
     struct rte_ether_addr mac_map[SENSE_MAX_NODES+1];
+    bool collector_enabled;
+    uint16_t collector_port;
+    char collector_ip[16];
+    struct rte_ether_addr collector_mac;
 } sense_config_t;
 
 extern sense_config_t sense_config;

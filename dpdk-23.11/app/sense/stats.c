@@ -158,3 +158,26 @@ const struct sense_rtt_snapshot* sense_snapshot_get(void)
 {
     return &snapshot;
 }
+
+int sense_stats_build_report(const struct sense_rtt_snapshot *snapshot_in,
+                             struct sense_stats_report_packet *out)
+{
+    if (!snapshot_in || !out || !rtt_tbl)
+        return -1;
+
+    memset(out, 0, sizeof(*out));
+    out->msg_type = MSG_STATS_REPORT;
+    out->src_id = sense_config.node_id;
+
+    uint32_t peer_count = 0;
+    for (uint32_t peer = 1; peer <= sense_config.node_num && peer_count < SENSE_MAX_NODES; peer++) {
+        struct sense_peer_stats_entry *entry = &out->peers[peer_count];
+        entry->peer_id = peer;
+        double avg = snapshot_in->avg_us[peer];
+        entry->avg_rtt_us = (avg >= 0.0) ? (float)avg : -1.0f;
+        entry->loss_count = rtt_tbl->entries[peer].loss_count;
+        peer_count++;
+    }
+    out->peer_count = (uint8_t)peer_count;
+    return 0;
+}

@@ -37,6 +37,8 @@ static int xstats_worker(__rte_unused void *arg)
                     if (avg >= 0.0)
                         printf("[SENSE] snapshot avg RTT to %u = %.3f us\n", peer, avg);
                 }
+
+                sense_publish_stats(&snap);
             }
             last = now;
         }

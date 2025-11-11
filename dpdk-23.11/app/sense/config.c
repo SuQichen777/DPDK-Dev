@@ -1,4 +1,5 @@
 #include "config.h"
+#include "packet.h"
 #include <jansson.h>
 #include <string.h>
 #include <rte_ether.h>
@@ -24,6 +25,9 @@ int sense_load_config(const char *filename)
         fprintf(stderr, "JSON load error: %s (line %d)\n", err.text, err.line);
         return -1;
     }
+
+    memset(&sense_config, 0, sizeof(sense_config));
+    sense_config.collector_port = SENSE_PORT;
 
     json_t *node_id = json_object_get(root, "node_id");
     json_t *node_num = json_object_get(root, "node_num");
@@ -59,6 +63,27 @@ int sense_load_config(const char *filename)
         if (parse_mac(mac_str, &sense_config.mac_map[i]) != 0) {
             json_decref(root);
             return -1;
+        }
+    }
+
+    json_t *collector = json_object_get(root, "collector");
+    if (json_is_object(collector)) {
+        json_t *ip = json_object_get(collector, "ip");
+        json_t *mac = json_object_get(collector, "mac");
+        json_t *port = json_object_get(collector, "port");
+        if (json_is_string(ip) && json_is_string(mac)) {
+            const char *ip_str = json_string_value(ip);
+            const char *mac_str = json_string_value(mac);
+            strncpy(sense_config.collector_ip, ip_str,
+                    sizeof(sense_config.collector_ip) - 1);
+            sense_config.collector_ip[sizeof(sense_config.collector_ip) - 1] = '\0';
+            if (parse_mac(mac_str, &sense_config.collector_mac) == 0) {
+                if (json_is_integer(port))
+                    sense_config.collector_port = (uint16_t)json_integer_value(port);
+                sense_config.collector_enabled = true;
+            } else {
+                fprintf(stderr, "Invalid collector MAC format: %s\n", mac_str);
+            }
         }
     }
 

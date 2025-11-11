@@ -2,6 +2,7 @@
 #include "config.h"
 #include "packet.h"
 #include "stats.h"
+#include "api.h"
 #include "sense_mp.h"
 #include <rte_ethdev.h>
 #include <rte_ether.h>
@@ -16,6 +17,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stddef.h>
 
 #define MBUF_POOL_SIZE 4096
 #define BURST_SIZE 32
@@ -50,8 +52,14 @@ static const struct rte_eth_conf port_conf_default = {
     .txmode = {.offloads = 0}
 };
 
-static void send_raw_packet(void *payload, size_t payload_len, uint16_t dst_id)
+static void send_udp_payload(const void *payload, size_t payload_len,
+                             const char *dst_ip,
+                             const struct rte_ether_addr *dst_mac,
+                             uint16_t dst_port)
 {
+    if (!payload || payload_len == 0 || !dst_ip || dst_ip[0] == '\0' || !dst_mac)
+        return;
+
     struct rte_mbuf *mbuf = rte_pktmbuf_alloc(mbuf_pool);
     if (!mbuf) return;
 
@@ -65,7 +73,7 @@ static void send_raw_packet(void *payload, size_t payload_len, uint16_t dst_id)
 
     struct rte_ether_hdr *eth_hdr = (struct rte_ether_hdr *)pkt_data;
     rte_ether_addr_copy(&sense_config.mac_map[sense_config.node_id], &eth_hdr->src_addr);
-    rte_ether_addr_copy(&sense_config.mac_map[dst_id], &eth_hdr->dst_addr);
+    rte_ether_addr_copy(dst_mac, &eth_hdr->dst_addr);
     eth_hdr->ether_type = rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV4);
 
     struct rte_ipv4_hdr *ip_hdr = (struct rte_ipv4_hdr *)(eth_hdr + 1);
@@ -79,17 +87,16 @@ static void send_raw_packet(void *payload, size_t payload_len, uint16_t dst_id)
     ip_hdr->next_proto_id = IPPROTO_UDP;
 
     const char *src_ip = sense_config.ip_map[sense_config.node_id];
-    const char *dst_ip = sense_config.ip_map[dst_id];
-    if (!src_ip || !dst_ip) {
-        rte_exit(EXIT_FAILURE, "Missing IP mapping for node %u or %u\n",
-                 sense_config.node_id, dst_id);
+    if (!src_ip || src_ip[0] == '\0') {
+        rte_pktmbuf_free(mbuf);
+        return;
     }
     ip_hdr->src_addr = inet_addr(src_ip);
     ip_hdr->dst_addr = inet_addr(dst_ip);
 
     struct rte_udp_hdr *udp_hdr = (struct rte_udp_hdr *)(ip_hdr + 1);
     udp_hdr->src_port = rte_cpu_to_be_16(SENSE_PORT);
-    udp_hdr->dst_port = rte_cpu_to_be_16(SENSE_PORT);
+    udp_hdr->dst_port = rte_cpu_to_be_16(dst_port);
     udp_hdr->dgram_len = rte_cpu_to_be_16(sizeof(struct rte_udp_hdr) + payload_len);
 
     void *pl = (void *)(udp_hdr + 1);
@@ -99,6 +106,19 @@ static void send_raw_packet(void *payload, size_t payload_len, uint16_t dst_id)
     udp_hdr->dgram_cksum = rte_ipv4_udptcp_cksum(ip_hdr, udp_hdr);
 
     rte_eth_tx_burst(sense_config.port_id, SENSE_PRIMARY_TXQ, &mbuf, 1);
+}
+
+static void send_raw_packet(const void *payload, size_t payload_len, uint16_t dst_id)
+{
+    if (dst_id == 0 || dst_id > sense_config.node_num)
+        return;
+    const char *dst_ip = sense_config.ip_map[dst_id];
+    if (!dst_ip || dst_ip[0] == '\0')
+        return;
+    send_udp_payload(payload, payload_len,
+                     dst_ip,
+                     &sense_config.mac_map[dst_id],
+                     SENSE_PORT);
 }
 
 void send_ping_packet(uint32_t peer_id)
@@ -286,4 +306,35 @@ void process_rx(void)
 
         rte_pktmbuf_free(m);
     }
+}
+
+void sense_publish_stats(const struct sense_unified_snapshot *snapshot)
+{
+    if (!sense_config.collector_enabled || !snapshot)
+        return;
+    if (sense_config.collector_ip[0] == '\0')
+        return;
+
+    struct sense_stats_report_packet report;
+    if (sense_stats_build_report(&snapshot->rtt, &report) != 0)
+        return;
+
+    static uint64_t stats_seq = 0;
+    report.seq = ++stats_seq;
+
+    size_t base_len = offsetof(struct sense_stats_report_packet, peers);
+    size_t payload_len = base_len +
+        ((size_t)report.peer_count * sizeof(struct sense_peer_stats_entry));
+    if (report.peer_count == 0)
+        payload_len = base_len;
+    if (payload_len > sizeof(report))
+        payload_len = sizeof(report);
+
+    uint16_t dst_port = sense_config.collector_port ?
+                        sense_config.collector_port : SENSE_PORT;
+
+    send_udp_payload(&report, payload_len,
+                     sense_config.collector_ip,
+                     &sense_config.collector_mac,
+                     dst_port);
 }

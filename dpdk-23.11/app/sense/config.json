@@ -1,6 +1,13 @@
 {
   "node_id": 1,
-  "node_num": 7,
+  "port_id": 0,
+  "test_auto_fail": true,
+  "node_num": 3,
+  "collector": {
+    "ip": "10.10.1.103",
+    "mac": "1c:34:da:72:f9:3e",
+    "port": 9998
+  },
   "ip_map": {
     "1": "10.10.1.102",
     "2": "10.10.1.103",
@@ -11,13 +18,17 @@
     "7": "10.10.1.108"
   },
   "mac_map": {
-    "1": "1c:34:da:72:fa:d6",
-    "2": "1c:34:da:72:f9:3e",
-    "3": "1c:34:da:72:f6:16",
+    "1": "10:70:fd:86:65:82",
+    "2": "08:c0:eb:d1:fc:56",
+    "3": "08:c0:eb:d1:fc:62",
     "4": "1c:34:da:72:f0:2e",
     "5": "1c:34:da:72:f5:f6",
     "6": "1c:34:da:72:e4:de",
     "7": "1c:34:da:72:e4:e6"
   },
-  "port_id": 0
+  "election_timeout_min_ms": 150,
+  "election_timeout_max_ms": 300,
+  "heartbeat_interval_ms": 50,
+  "test_auto_fail_timeout_ms": 1000,
+  "test_auto_fail_duration_ms": 10000
 }
