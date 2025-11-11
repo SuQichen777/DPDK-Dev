@@ -3,8 +3,10 @@
 
 set -u
 
-CONFIG_PATH="dpdk-23.11/app/raft/config.json"
-DATA_DIR="dpdk-23.11/app/raft/data_storage"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+CONFIG_PATH="$REPO_ROOT/dpdk-23.11/app/raft/config.json"
+DATA_DIR="$SCRIPT_DIR/data_storage"
 INTERVAL=10
 CPU_DELAY=1
 PING_SAMPLES=5

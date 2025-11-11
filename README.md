@@ -201,7 +201,7 @@ First go to the `script` directory and check `bind-NIC.sh`:
 
 #### Telemetry probe
 
-`script/monitor_probe.sh` relies only on `/proc`, `ping`, `awk`, and sysfs counters to sample CPU %, memory %, peer-to-peer P99 latency, and optional NIC throughput. It writes the most recent snapshot to `dpdk-23.11/app/raft/data_storage/telemetry.json`, while `telemetry.jsonl` and `telemetry.csv` retain history for later plotting. Peer IPs are auto-discovered from `dpdk-23.11/app/raft/config.json`, or you can pass repeated `--peer <id:ip>` overrides.
+`script/monitor_probe.sh` relies only on `/proc`, `ping`, `awk`, and sysfs counters to sample CPU %, memory %, peer-to-peer P99 latency, and optional NIC throughput. By default it writes the latest snapshot to `script/data_storage/telemetry.json`, while `telemetry.jsonl` and `telemetry.csv` in the same directory retain history for later plotting. Peer IPs are auto-discovered from `dpdk-23.11/app/raft/config.json`, or you can pass repeated `--peer <id:ip>` overrides. Use `--data-dir` if you prefer a different output location.
 
 Example (collect once, include throughput for `ens3`):
 
