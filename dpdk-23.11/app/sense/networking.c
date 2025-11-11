@@ -2,12 +2,14 @@
 #include "config.h"
 #include "packet.h"
 #include "stats.h"
+#include "sense_mp.h"
 #include <rte_ethdev.h>
 #include <rte_ether.h>
 #include <rte_mbuf.h>
 #include <rte_ip.h>
 #include <rte_udp.h>
 #include <rte_errno.h>
+#include <rte_memzone.h>
 #include <rte_cycles.h>
 #include <arpa/inet.h>
 #include <string.h>
@@ -16,8 +18,31 @@
 
 #define MBUF_POOL_SIZE 4096
 #define BURST_SIZE 32
+#define SENSE_TOTAL_QUEUES 2
 
 static struct rte_mempool *mbuf_pool;
+
+static void publish_mp_info(void)
+{
+    const struct rte_memzone *mz = rte_memzone_reserve(SENSE_MP_INFO_ZONE,
+                                                       sizeof(struct sense_mp_info),
+                                                       rte_socket_id(),
+                                                       RTE_MEMZONE_2MB | RTE_MEMZONE_SIZE_HINT_ONLY);
+    if (mz == NULL)
+        mz = rte_memzone_lookup(SENSE_MP_INFO_ZONE);
+    if (mz == NULL)
+        rte_exit(EXIT_FAILURE, "Failed to reserve/lookup %s memzone\n", SENSE_MP_INFO_ZONE);
+
+    struct sense_mp_info *info = mz->addr;
+    memset(info, 0, sizeof(*info));
+    info->port_id = sense_config.port_id;
+    info->primary_rxq = SENSE_PRIMARY_RXQ;
+    info->primary_txq = SENSE_PRIMARY_TXQ;
+    info->secondary_rxq = SENSE_SECONDARY_RXQ;
+    info->secondary_txq = SENSE_SECONDARY_TXQ;
+    snprintf(info->mempool_name, sizeof(info->mempool_name), "%s",
+             rte_mempool_get_name(mbuf_pool));
+}
 static const struct rte_eth_conf port_conf_default = {
     .rxmode = {.mtu = 1500},
     .txmode = {.offloads = 0}
@@ -71,7 +96,7 @@ static void send_raw_packet(void *payload, size_t payload_len, uint16_t dst_id)
     ip_hdr->hdr_checksum = rte_ipv4_cksum(ip_hdr);
     udp_hdr->dgram_cksum = rte_ipv4_udptcp_cksum(ip_hdr, udp_hdr);
 
-    rte_eth_tx_burst(sense_config.port_id, 0, &mbuf, 1);
+    rte_eth_tx_burst(sense_config.port_id, SENSE_PRIMARY_TXQ, &mbuf, 1);
 }
 
 void send_ping_packet(uint32_t peer_id)
@@ -103,7 +128,10 @@ void net_init(void)
     if (mbuf_pool == NULL)
         rte_exit(EXIT_FAILURE, "Cannot create mbuf pool: %s\n", rte_strerror(rte_errno));
 
-    int ret = rte_eth_dev_configure(sense_config.port_id, 1, 1, &port_conf_default);
+    int ret = rte_eth_dev_configure(sense_config.port_id,
+                                    SENSE_TOTAL_QUEUES,
+                                    SENSE_TOTAL_QUEUES,
+                                    &port_conf_default);
     if (ret < 0)
         rte_exit(EXIT_FAILURE, "dev_configure err=%d\n", ret);
 
@@ -111,11 +139,19 @@ void net_init(void)
                                  rte_eth_dev_socket_id(sense_config.port_id), NULL, mbuf_pool);
     if (ret < 0)
         rte_exit(EXIT_FAILURE, "rx_queue_setup err=%d\n", ret);
+    ret = rte_eth_rx_queue_setup(sense_config.port_id, 1, 128,
+                                 rte_eth_dev_socket_id(sense_config.port_id), NULL, mbuf_pool);
+    if (ret < 0)
+        rte_exit(EXIT_FAILURE, "rx_queue_setup(q1) err=%d\n", ret);
 
     ret = rte_eth_tx_queue_setup(sense_config.port_id, 0, 512,
                                  rte_eth_dev_socket_id(sense_config.port_id), NULL);
     if (ret < 0)
         rte_exit(EXIT_FAILURE, "tx_queue_setup err=%d\n", ret);
+    ret = rte_eth_tx_queue_setup(sense_config.port_id, 1, 512,
+                                 rte_eth_dev_socket_id(sense_config.port_id), NULL);
+    if (ret < 0)
+        rte_exit(EXIT_FAILURE, "tx_queue_setup(q1) err=%d\n", ret);
 
     ret = rte_eth_dev_start(sense_config.port_id);
     if (ret < 0)
@@ -132,12 +168,14 @@ void net_init(void)
                actual_mac.addr_bytes[0], actual_mac.addr_bytes[1], actual_mac.addr_bytes[2],
                actual_mac.addr_bytes[3], actual_mac.addr_bytes[4], actual_mac.addr_bytes[5]);
     }
+
+    publish_mp_info();
 }
 
 void process_rx(void)
 {
     struct rte_mbuf *rx_bufs[BURST_SIZE];
-    uint16_t n = rte_eth_rx_burst(sense_config.port_id, 0, rx_bufs, BURST_SIZE);
+    uint16_t n = rte_eth_rx_burst(sense_config.port_id, SENSE_PRIMARY_RXQ, rx_bufs, BURST_SIZE);
     for (uint16_t i = 0; i < n; i++) {
         struct rte_mbuf *m = rx_bufs[i];
         char *data = rte_pktmbuf_mtod(m, char *);

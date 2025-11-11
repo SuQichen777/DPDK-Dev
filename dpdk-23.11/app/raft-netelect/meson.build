@@ -4,7 +4,7 @@ if is_windows
     subdir_done()
 endif
 
-includes = include_directories('include')
+includes = include_directories('include', '../sense/include')
 
 sources = files(
         'config.c',

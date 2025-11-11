@@ -9,30 +9,33 @@
 #include <rte_ip.h>
 #include <rte_timer.h>
 #include <rte_errno.h>
+#include <rte_memzone.h>
+#include <rte_eal.h>
 #include <arpa/inet.h>
 #include <math.h>
+#include "sense_mp.h"
 
 #define MBUF_POOL_SIZE 4096
 #define BURST_SIZE 32
 
 static struct rte_mempool *mbuf_pool;
+static uint16_t rx_queue_id = 0;
+static uint16_t tx_queue_id = 0;
 static const struct rte_eth_conf port_conf_default = {
     .rxmode = {.mtu = 1500},
     // .txmode = { .offloads = RTE_ETH_TX_OFFLOAD_MBUF_FAST_FREE }
     .txmode = {.offloads = 0}
 };
 
-void net_init(void)
+static void net_init_primary(void)
 {
     // pool initialization
     mbuf_pool = rte_pktmbuf_pool_create("RAFT_MBUF_POOL", MBUF_POOL_SIZE,
                                         0, 0, RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
     if (mbuf_pool == NULL)
         rte_exit(EXIT_FAILURE, "Cannot create mbuf pool: %s\n", rte_strerror(rte_errno));
-    // ethdev initialization
-    // global_config.port_id = 0;
-    int ret;
-    ret = rte_eth_dev_configure(global_config.port_id, 1, 1, &port_conf_default);
+
+    int ret = rte_eth_dev_configure(global_config.port_id, 1, 1, &port_conf_default);
     if (ret < 0)
         rte_exit(EXIT_FAILURE, "dev_configure err=%d\n", ret);
 
@@ -50,6 +53,10 @@ void net_init(void)
     ret = rte_eth_dev_start(global_config.port_id);
     if (ret < 0)
         rte_exit(EXIT_FAILURE, "dev_start err=%d\n", ret);
+
+    rx_queue_id = 0;
+    tx_queue_id = 0;
+
     struct rte_ether_addr actual_mac;
     ret = rte_eth_macaddr_get(global_config.port_id, &actual_mac);
     if (ret != 0)
@@ -62,6 +69,52 @@ void net_init(void)
                global_config.port_id,
                actual_mac.addr_bytes[0], actual_mac.addr_bytes[1], actual_mac.addr_bytes[2],
                actual_mac.addr_bytes[3], actual_mac.addr_bytes[4], actual_mac.addr_bytes[5]);
+    }
+}
+
+static void net_attach_secondary(void)
+{
+    const struct rte_memzone *mz = rte_memzone_lookup(SENSE_MP_INFO_ZONE);
+    if (mz == NULL)
+    {
+        rte_exit(EXIT_FAILURE, "Secondary mode: missing %s memzone, is sense running?\n",
+                 SENSE_MP_INFO_ZONE);
+    }
+
+    const struct sense_mp_info *info = mz->addr;
+    if (global_config.port_id != info->port_id)
+    {
+        printf("[WARN] Overriding port_id %u -> %u to match Sense primary\n",
+               global_config.port_id, info->port_id);
+        global_config.port_id = info->port_id;
+    }
+
+    mbuf_pool = rte_mempool_lookup(info->mempool_name);
+    if (mbuf_pool == NULL)
+    {
+        rte_exit(EXIT_FAILURE, "Secondary mode: unable to lookup mempool %s\n",
+                 info->mempool_name);
+    }
+
+    rx_queue_id = info->secondary_rxq;
+    tx_queue_id = info->secondary_txq;
+
+    printf("[RAFT-secondary] Attached to port %u using queues rx=%u tx=%u (mempool=%s)\n",
+           global_config.port_id,
+           rx_queue_id,
+           tx_queue_id,
+           info->mempool_name);
+}
+
+void net_init(void)
+{
+    if (rte_eal_process_type() == RTE_PROC_PRIMARY)
+    {
+        net_init_primary();
+    }
+    else
+    {
+        net_attach_secondary();
     }
 }
 
@@ -120,13 +173,13 @@ void send_raft_packet(struct raft_packet *pkt, uint16_t dst_id)
     udp_hdr->dgram_cksum = rte_ipv4_udptcp_cksum(ip_hdr, udp_hdr);
 
     // send the packet
-    rte_eth_tx_burst(global_config.port_id, 0, &mbuf, 1);
+    rte_eth_tx_burst(global_config.port_id, tx_queue_id, &mbuf, 1);
 }
 
 void process_packets(void)
 {
     struct rte_mbuf *rx_bufs[BURST_SIZE];
-    uint16_t nb_rx = rte_eth_rx_burst(global_config.port_id, 0, rx_bufs, BURST_SIZE);
+    uint16_t nb_rx = rte_eth_rx_burst(global_config.port_id, rx_queue_id, rx_bufs, BURST_SIZE);
 
     for (int i = 0; i < nb_rx; i++)
     {
