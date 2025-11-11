@@ -1,6 +1,6 @@
 {
   "node_id": 1,
-  "port_id": 0,
+  "port_id": 2,
   "test_auto_fail": true,
   "node_num": 3,
   "collector": {
